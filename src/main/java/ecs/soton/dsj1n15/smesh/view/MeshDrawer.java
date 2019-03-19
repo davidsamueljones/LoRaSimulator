@@ -273,21 +273,42 @@ public class MeshDrawer {
     Point pb = getViewPosition(b.getX(), b.getY());
     Point mid = new Point(pa.x + (pb.x - pa.x) / 2, pa.y + (pb.y - pa.y) / 2);
 
+//    Line2D line = new Line2D(pa.x, pa.y, pb.x, pb.y);
+//    double receivedPower = mesh.getEnvironment().getReceivedPower(a, b);
+//    
+//    int opacity = 0;
+//    if (receivedPower > LoRaRadio.MAX_SENSITIVITY) {
+//      opacity = 255;
+//    } else {
+//      int leeway = 5;
+//      double strength = leeway + receivedPower - LoRaRadio.MAX_SENSITIVITY;
+//      opacity = (int) Math.max(0, Math.min(255, strength * 255 / leeway));
+//    }
+//    
+//    g.setColor(new Color(0, 0, 0, opacity));
+//    g.draw(line.asAwtShape());
+//    g.drawString(String.format("%d", (int) receivedPower), mid.x, mid.y);
+
+    
+   
     Line2D line = new Line2D(pa.x, pa.y, pb.x, pb.y);
-    double receivedPower = mesh.getEnvironment().getReceivedPower(a, b);
+    double snr = mesh.getEnvironment().getSNR(a, b);
+    
     int opacity = 0;
-    if (receivedPower > LoRaRadio.MAX_SENSITIVITY) {
+    if (snr >= b.getRequiredSNR()) {
       opacity = 255;
     } else {
       int leeway = 5;
-      double strength = leeway + receivedPower - LoRaRadio.MAX_SENSITIVITY;
+      double strength = leeway + snr - b.getRequiredSNR();
       opacity = (int) Math.max(0, Math.min(255, strength * 255 / leeway));
     }
     
     g.setColor(new Color(0, 0, 0, opacity));
     g.draw(line.asAwtShape());
-    g.drawString(String.format("%d", (int) receivedPower), mid.x, mid.y);
+    g.drawString(String.format("%d", (int) snr), mid.x, mid.y);
 
+    
+    
   }
 
   public int getGridSize() {
