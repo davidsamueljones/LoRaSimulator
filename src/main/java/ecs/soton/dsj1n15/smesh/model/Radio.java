@@ -91,7 +91,7 @@ public interface Radio {
    * @return The calculated noise floor in dBm
    */
   public static double getNoiseFloor(Radio radio) {
-    double t = 283; // room temperature TODO: Should this be temperature of location?
+    double t = 290; // room temperature TODO: Should this be temperature of location?
     double k = 1.38 * Math.pow(10, -23); // Boltzmann’s Constant
     return 10 * Math.log10(k * t * radio.getBandwidth() * 1000) + radio.getNoiseFigure();
   }
