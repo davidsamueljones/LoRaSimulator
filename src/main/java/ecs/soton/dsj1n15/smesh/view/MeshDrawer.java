@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import javax.imageio.ImageIO;
 import ecs.soton.dsj1n15.smesh.model.Mesh;
-import ecs.soton.dsj1n15.smesh.model.LoRaRadio;
+import ecs.soton.dsj1n15.smesh.model.Radio;
 import ecs.soton.dsj1n15.smesh.model.environment.EnvironmentObject;
 import math.geom2d.Point2D;
 import math.geom2d.conic.Circle2D;
@@ -48,9 +48,9 @@ public class MeshDrawer {
   /** How much each square represents (unitless but could be meters/kms) */
   private int gridUnit = 100;
 
-  private Map<LoRaRadio, Circle2D> nodeShapes;
+  private Map<Radio, Circle2D> nodeShapes;
 
-  private LoRaRadio selectedNode = null;
+  private Radio selectedNode = null;
 
   private Point2D curPos = null;
 
@@ -62,11 +62,11 @@ public class MeshDrawer {
     this.curPos = curPos;
   }
 
-  public void setSelectedNode(LoRaRadio selectedNode) {
+  public void setSelectedNode(Radio selectedNode) {
     this.selectedNode = selectedNode;
   }
 
-  public LoRaRadio getSelectedNode() {
+  public Radio getSelectedNode() {
     return selectedNode;
   }
 
@@ -151,7 +151,7 @@ public class MeshDrawer {
     // Draw the routes
     final float dash[] = {5.0f};
     g.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10, dash, 0));
-    List<LoRaRadio> nodes = new ArrayList<>(mesh.getNodes());
+    List<Radio> nodes = new ArrayList<>(mesh.getNodes());
 
 
 
@@ -246,9 +246,9 @@ public class MeshDrawer {
     Rectangle2D viewArea = getCoordinateSpace(viewSpace);
     g.setStroke(new BasicStroke(2));
     int radius = 7;
-    for (LoRaRadio node : mesh.getNodes()) {
-      if (viewArea.contains(node.getX(), node.getY())) {
-        Point p = getViewPosition(node.getX(), node.getY());
+    for (Radio node : mesh.getNodes()) {
+      if (viewArea.contains(node.getXY())) {
+        Point p = getViewPosition(node.getXY());
         Circle2D s = new Circle2D(p.x, p.y, radius);
         g.setColor(Color.RED);
         g.fill(s.asAwtShape());
@@ -264,24 +264,24 @@ public class MeshDrawer {
     }
   }
 
-  public Map<LoRaRadio, Circle2D> getNodeShapes() {
+  public Map<Radio, Circle2D> getNodeShapes() {
     return nodeShapes;
   }
 
-  private void drawRoute(Graphics2D g, LoRaRadio a, LoRaRadio b) {
-    Point pa = getViewPosition(a.getX(), a.getY());
-    Point pb = getViewPosition(b.getX(), b.getY());
+  private void drawRoute(Graphics2D g, Radio a, Radio b) {
+    Point pa = getViewPosition(a.getXY());
+    Point pb = getViewPosition(b.getXY());
     Point mid = new Point(pa.x + (pb.x - pa.x) / 2, pa.y + (pb.y - pa.y) / 2);
 
 //    Line2D line = new Line2D(pa.x, pa.y, pb.x, pb.y);
 //    double receivedPower = mesh.getEnvironment().getReceivedPower(a, b);
 //    
 //    int opacity = 0;
-//    if (receivedPower > LoRaRadio.MAX_SENSITIVITY) {
+//    if (receivedPower > Radio.MAX_SENSITIVITY) {
 //      opacity = 255;
 //    } else {
 //      int leeway = 5;
-//      double strength = leeway + receivedPower - LoRaRadio.MAX_SENSITIVITY;
+//      double strength = leeway + receivedPower - Radio.MAX_SENSITIVITY;
 //      opacity = (int) Math.max(0, Math.min(255, strength * 255 / leeway));
 //    }
 //    
@@ -292,7 +292,7 @@ public class MeshDrawer {
     
    
     Line2D line = new Line2D(pa.x, pa.y, pb.x, pb.y);
-    double snr = mesh.getEnvironment().getSNR(a, b);
+    double snr = mesh.getEnvironment().getReceiveSNR(a, b);
     
     int opacity = 0;
     if (snr >= b.getRequiredSNR()) {

@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import javax.swing.JPanel;
 import ecs.soton.dsj1n15.smesh.model.Mesh;
-import ecs.soton.dsj1n15.smesh.model.LoRaRadio;
+import ecs.soton.dsj1n15.smesh.model.Radio;
 import math.geom2d.Point2D;
 import math.geom2d.conic.Circle2D;
 
@@ -31,7 +31,7 @@ public class SimulatorMeshPanel extends JPanel
   private MeshDrawer meshDrawer;
 
   private Point lastPos = null;
-  private LoRaRadio nodeAtPress = null;
+  private Radio nodeAtPress = null;
 
   /**
    * Create the panel.
@@ -76,12 +76,13 @@ public class SimulatorMeshPanel extends JPanel
     return meshDrawer;
   }
 
-  private void moveNode(LoRaRadio node, MouseEvent e) {
+  private void moveNode(Radio node, MouseEvent e) {
     if (lastPos != null) {
       Point mouse = getPointOnView(e.getPoint());
       Point2D point = meshDrawer.getCoordinate(mouse);
-      node.setX(point.x());
-      node.setY(point.y());
+      
+      //node.setX(point.x());
+      //node.setY(point.y());
       repaint();
     }
     lastPos = e.getPoint();
@@ -99,10 +100,10 @@ public class SimulatorMeshPanel extends JPanel
     lastPos = e.getPoint();
   }
 
-  private LoRaRadio findNode(MouseEvent e) {
+  private Radio findNode(MouseEvent e) {
     Point2D p = new Point2D(getPointOnView(e.getPoint()));
-    Map<LoRaRadio, Circle2D> nodeShapes = meshDrawer.getNodeShapes();
-    for (Entry<LoRaRadio, Circle2D> entry : nodeShapes.entrySet()) {
+    Map<Radio, Circle2D> nodeShapes = meshDrawer.getNodeShapes();
+    for (Entry<Radio, Circle2D> entry : nodeShapes.entrySet()) {
       if (entry.getValue().isInside(p)) {
         return entry.getKey();
       }
@@ -171,7 +172,7 @@ public class SimulatorMeshPanel extends JPanel
 
   @Override
   public void mouseClicked(MouseEvent e) {
-    LoRaRadio node = findNode(e);
+    Radio node = findNode(e);
     meshDrawer.setSelectedNode(node);
     repaint();
   }
