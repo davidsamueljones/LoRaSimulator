@@ -16,28 +16,25 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.imageio.ImageIO;
-import ecs.soton.dsj1n15.smesh.model.Mesh;
 import ecs.soton.dsj1n15.smesh.model.Radio;
+import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import ecs.soton.dsj1n15.smesh.model.environment.EnvironmentObject;
 import math.geom2d.Point2D;
 import math.geom2d.conic.Circle2D;
-import math.geom2d.conic.Ellipse2D;
 import math.geom2d.line.Line2D;
-import math.geom2d.polygon.Polygon2D;
 import math.geom2d.polygon.Rectangle2D;
 
-public class MeshDrawer {
+public class EnvironmentDrawer {
   public static final double USEABLE_AREA = 0.95;
   public static final int MIN_GRID_SIZE = 5;
   public static final int MAX_GRID_SIZE = 200;
 
-  /** The mesh to draw */
-  private final Mesh mesh;
+  /** The environment to draw */
+  private final Environment environment;
 
   /** The offset in the view to start drawing from */
   private Point2D offset = new Point2D(0, 0);
@@ -48,7 +45,7 @@ public class MeshDrawer {
   /** How much each square represents (unitless but could be meters/kms) */
   private int gridUnit = 100;
 
-  private Map<Radio, Circle2D> nodeShapes;
+  private final Map<Radio, Circle2D> nodeShapes = new LinkedHashMap<>();
 
   private Radio selectedNode = null;
 
@@ -70,11 +67,6 @@ public class MeshDrawer {
     return selectedNode;
   }
 
-  /**
-   * Return a copy, points aren't immmutable.
-   * 
-   * @return
-   */
   public Point2D getOffset() {
     return offset;
   }
@@ -84,46 +76,46 @@ public class MeshDrawer {
   }
 
   /**
-   * Instantiates a new mesh drawer with a mesh.
+   * Instantiates a new environment drawer with an environment.
    *
    * @param tilePuzzle The tile puzzle object to draw
    */
-  public MeshDrawer(Mesh mesh) {
-    this.mesh = mesh;
+  public EnvironmentDrawer(Environment environment) {
+    this.environment = environment;
   }
 
   /**
    * Creates an image of a given size using the given settings and lines.
    *
    * @param size Size of image to create
-   * @return Image of the mesh
+   * @return Image of the environment
    */
-  public BufferedImage getMeshImage(Dimension size) {
+  public BufferedImage getEnvironmentImage(Dimension size) {
     // Create a new image of given size
-    BufferedImage meshImage =
-        new BufferedImage(size.width, size.height, BufferedImage.TYPE_3BYTE_BGR);
+    BufferedImage image = new BufferedImage(size.width, size.height, BufferedImage.TYPE_3BYTE_BGR);
     // Use BufferedImage's size and graphics object to draw the scaled tile puzzle
-    drawMesh(meshImage);
-    return meshImage;
+    drawEnvironment(image);
+    return image;
   }
 
   /**
-   * Draws the current mesh onto a given buffered image - scaled to image.
+   * Draws the current environment onto a given buffered image - scaled to image.
    *
    * @param image Image to draw to
    */
-  public void drawMesh(BufferedImage image) {
-    drawMesh((Graphics2D) image.getGraphics(), new Dimension(image.getWidth(), image.getHeight()));
+  public void drawEnvironment(BufferedImage image) {
+    drawEnvironment((Graphics2D) image.getGraphics(),
+        new Dimension(image.getWidth(), image.getHeight()));
   }
 
 
   /**
-   * Draws the current mesh onto a given graphics object - scaled to the given dimensions.
+   * Draws the current environment onto a given graphics object - scaled to the given dimensions.
    *
    * @param g Graphics object to draw to
    * @param d Dimension to scale tile puzzle to
    */
-  public void drawMesh(Graphics2D g, Dimension d) {
+  public void drawEnvironment(Graphics2D g, Dimension d) {
     Rectangle viewSpace = getViewSpace(d);
 
     // Save the current graphics settings
@@ -142,29 +134,29 @@ public class MeshDrawer {
     // Draw background
     g.setColor(Color.WHITE);
     g.fillRect(0, 0, viewSpace.width, viewSpace.height);
-
-    /* Handle drawing behaviour for grid */
     // Draw the grid background
     drawGrid(g, viewSpace);
-    drawEnvironment(g, viewSpace);
+    
+    // 
+    if (environment != null) {
+      drawEnvironment(g, viewSpace);
 
-    // Draw the routes
-    final float dash[] = {5.0f};
-    g.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10, dash, 0));
-    List<Radio> nodes = new ArrayList<>(mesh.getNodes());
-
-
-
-    for (int s = 0; s < nodes.size(); s++) {
-      for (int t = s + 1; t < nodes.size(); t++) {
-        drawRoute(g, nodes.get(s), nodes.get(t));
+      // Draw the routes
+      final float dash[] = {5.0f};
+      g.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10, dash, 0));
+      List<Radio> nodes = new ArrayList<>(environment.getNodes());
+      for (int s = 0; s < nodes.size(); s++) {
+        for (int t = s + 1; t < nodes.size(); t++) {
+          drawRoute(g, nodes.get(s), nodes.get(t));
+        }
       }
-    }
-    // Draw the nodes
-    drawNodes(g, viewSpace);
-
+      // Draw the nodes
+      drawNodes(g, viewSpace);
+    } 
+    
     // Draw the info box
     drawInfo(g, viewSpace);
+    
     // Draw a border
     g.setColor(Color.BLACK);
     g.setStroke(new BasicStroke(4));
@@ -179,7 +171,7 @@ public class MeshDrawer {
 
   private void drawEnvironment(Graphics2D g, Rectangle viewSpace) {
     AffineTransform transform = getScaleTransform();
-    for (EnvironmentObject object : mesh.getEnvironment().getEnvironmentObjects()) {
+    for (EnvironmentObject object : environment.getEnvironmentObjects()) {
       Shape shape = object.getAwtShape();
       shape = transform.createTransformedShape(shape);
       if (object.getFillColor() != null) {
@@ -242,11 +234,11 @@ public class MeshDrawer {
   }
 
   private void drawNodes(Graphics2D g, Rectangle viewSpace) {
-    nodeShapes = new LinkedHashMap<>();
+    nodeShapes.clear();
     Rectangle2D viewArea = getCoordinateSpace(viewSpace);
     g.setStroke(new BasicStroke(2));
     int radius = 7;
-    for (Radio node : mesh.getNodes()) {
+    for (Radio node : environment.getNodes()) {
       if (viewArea.contains(node.getXY())) {
         Point p = getViewPosition(node.getXY());
         Circle2D s = new Circle2D(p.x, p.y, radius);
@@ -273,27 +265,27 @@ public class MeshDrawer {
     Point pb = getViewPosition(b.getXY());
     Point mid = new Point(pa.x + (pb.x - pa.x) / 2, pa.y + (pb.y - pa.y) / 2);
 
-//    Line2D line = new Line2D(pa.x, pa.y, pb.x, pb.y);
-//    double receivedPower = mesh.getEnvironment().getReceivedPower(a, b);
-//    
-//    int opacity = 0;
-//    if (receivedPower > Radio.MAX_SENSITIVITY) {
-//      opacity = 255;
-//    } else {
-//      int leeway = 5;
-//      double strength = leeway + receivedPower - Radio.MAX_SENSITIVITY;
-//      opacity = (int) Math.max(0, Math.min(255, strength * 255 / leeway));
-//    }
-//    
-//    g.setColor(new Color(0, 0, 0, opacity));
-//    g.draw(line.asAwtShape());
-//    g.drawString(String.format("%d", (int) receivedPower), mid.x, mid.y);
+    // Line2D line = new Line2D(pa.x, pa.y, pb.x, pb.y);
+    // double receivedPower = environment.getReceivedPower(a, b);
+    //
+    // int opacity = 0;
+    // if (receivedPower > Radio.MAX_SENSITIVITY) {
+    // opacity = 255;
+    // } else {
+    // int leeway = 5;
+    // double strength = leeway + receivedPower - Radio.MAX_SENSITIVITY;
+    // opacity = (int) Math.max(0, Math.min(255, strength * 255 / leeway));
+    // }
+    //
+    // g.setColor(new Color(0, 0, 0, opacity));
+    // g.draw(line.asAwtShape());
+    // g.drawString(String.format("%d", (int) receivedPower), mid.x, mid.y);
 
-    
-   
+
+
     Line2D line = new Line2D(pa.x, pa.y, pb.x, pb.y);
-    double snr = mesh.getEnvironment().getReceiveSNR(a, b);
-    
+    double snr = environment.getReceiveSNR(a, b);
+
     int opacity = 0;
     if (snr >= b.getRequiredSNR()) {
       opacity = 255;
@@ -302,13 +294,13 @@ public class MeshDrawer {
       double strength = leeway + snr - b.getRequiredSNR();
       opacity = (int) Math.max(0, Math.min(255, strength * 255 / leeway));
     }
-    
+
     g.setColor(new Color(0, 0, 0, opacity));
     g.draw(line.asAwtShape());
     g.drawString(String.format("%d", (int) snr), mid.x, mid.y);
 
-    
-    
+
+
   }
 
   public int getGridSize() {
@@ -408,16 +400,16 @@ public class MeshDrawer {
   }
 
   /**
-   * Export a Mesh as an image (drawn using a MeshDrawer).
+   * Export an Environment as an image (drawn using a EnvironmentDrawer).
    * 
    * @param puzzle Puzzle to draw
    */
-  public static void imgExport(Mesh mesh) {
-    MeshDrawer drawer = new MeshDrawer(mesh);
-    BufferedImage exportImage = drawer.getMeshImage(new Dimension(2048, 2048));
+  public static void imgExport(Environment environment) {
+    EnvironmentDrawer drawer = new EnvironmentDrawer(environment);
+    BufferedImage exportImage = drawer.getEnvironmentImage(new Dimension(2048, 2048));
     String date = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date());
     try {
-      ImageIO.write(exportImage, "PNG", new File(date + "-Mesh.png"));
+      ImageIO.write(exportImage, "PNG", new File(date + "-Environment.png"));
     } catch (IOException e) {
       System.err.println("Unable to export image");
     }

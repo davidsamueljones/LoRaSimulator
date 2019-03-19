@@ -6,7 +6,6 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.Shape;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
@@ -15,20 +14,20 @@ import java.awt.event.MouseWheelListener;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.swing.JPanel;
-import ecs.soton.dsj1n15.smesh.model.Mesh;
 import ecs.soton.dsj1n15.smesh.model.Radio;
+import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import math.geom2d.Point2D;
 import math.geom2d.conic.Circle2D;
 
-public class SimulatorMeshPanel extends JPanel
+public class SimulatorViewPanel extends JPanel
     implements MouseListener, MouseMotionListener, MouseWheelListener {
   private static final long serialVersionUID = 5109577978956951077L;
 
-  /** Mesh being displayed */
-  private Mesh mesh;
+  /** Environment being displayed */
+  private Environment environment;
 
-  /** Drawing object being used to display mesh */
-  private MeshDrawer meshDrawer;
+  /** Drawing object being used to display environment */
+  private EnvironmentDrawer environmentDrawer;
 
   private Point lastPos = null;
   private Radio nodeAtPress = null;
@@ -36,8 +35,8 @@ public class SimulatorMeshPanel extends JPanel
   /**
    * Create the panel.
    */
-  public SimulatorMeshPanel() {
-    setMesh(null);
+  public SimulatorViewPanel() {
+    setEnvironment(null);
     addMouseListener(this);
     addMouseMotionListener(this);
     addMouseWheelListener(this);
@@ -48,41 +47,40 @@ public class SimulatorMeshPanel extends JPanel
     super.paintComponent(gr);
     Graphics2D g = (Graphics2D) gr;
     Dimension d = this.getSize();
-    meshDrawer.drawMesh(g, d);
+    environmentDrawer.drawEnvironment(g, d);
   }
 
   /**
-   * @return The mesh
+   * @return The environment being draw
    */
-  public Mesh getMesh() {
-    return mesh;
+  public Environment getEnvironment() {
+    return environment;
   }
 
   /**
-   * Sets the mesh object. Generating a new drawer.
+   * Sets the environment object. Generating a new drawer.
    *
-   * @param mesh The new mesh puzzle
+   * @param environment The new environment
    */
-  public void setMesh(Mesh mesh) {
-    this.mesh = mesh;
-    meshDrawer = new MeshDrawer(mesh);
+  public void setEnvironment(Environment environment) {
+    this.environment = environment;
+    environmentDrawer = new EnvironmentDrawer(environment);
     repaint();
   }
 
   /**
-   * @return The mesh drawer
+   * @return The environment drawer
    */
-  public MeshDrawer getMeshDrawer() {
-    return meshDrawer;
+  public EnvironmentDrawer getEnvironmentDrawer() {
+    return environmentDrawer;
   }
 
   private void moveNode(Radio node, MouseEvent e) {
     if (lastPos != null) {
       Point mouse = getPointOnView(e.getPoint());
-      Point2D point = meshDrawer.getCoordinate(mouse);
-      
-      //node.setX(point.x());
-      //node.setY(point.y());
+      Point2D point = environmentDrawer.getCoordinate(mouse);
+      node.setX(point.x());
+      node.setY(point.y());
       repaint();
     }
     lastPos = e.getPoint();
@@ -90,11 +88,11 @@ public class SimulatorMeshPanel extends JPanel
 
   private void shiftView(MouseEvent e) {
     if (lastPos != null) {
-      int difX = (int) (-(e.getX() - lastPos.x) * meshDrawer.getScale());
-      int difY = (int) (-(e.getY() - lastPos.y) * meshDrawer.getScale());
+      int difX = (int) (-(e.getX() - lastPos.x) * environmentDrawer.getScale());
+      int difY = (int) (-(e.getY() - lastPos.y) * environmentDrawer.getScale());
 
-      Point2D offset = meshDrawer.getOffset();
-      meshDrawer.setOffset(new Point2D(offset.x() + difX, offset.y() + difY));
+      Point2D offset = environmentDrawer.getOffset();
+      environmentDrawer.setOffset(new Point2D(offset.x() + difX, offset.y() + difY));
       repaint();
     }
     lastPos = e.getPoint();
@@ -102,7 +100,7 @@ public class SimulatorMeshPanel extends JPanel
 
   private Radio findNode(MouseEvent e) {
     Point2D p = new Point2D(getPointOnView(e.getPoint()));
-    Map<Radio, Circle2D> nodeShapes = meshDrawer.getNodeShapes();
+    Map<Radio, Circle2D> nodeShapes = environmentDrawer.getNodeShapes();
     for (Entry<Radio, Circle2D> entry : nodeShapes.entrySet()) {
       if (entry.getValue().isInside(p)) {
         return entry.getKey();
@@ -112,33 +110,33 @@ public class SimulatorMeshPanel extends JPanel
   }
 
   private void updateCurPos(MouseEvent e) {
-    meshDrawer.setCurPos(getMouseCoordinate(e));
+    environmentDrawer.setCurPos(getMouseCoordinate(e));
   }
 
   private void zoomView(Point point, int rotation) {
-    int curSize = meshDrawer.getGridSize();
+    int curSize = environmentDrawer.getGridSize();
     int modSize = curSize + rotation;
-    int newSize = Math.max(MeshDrawer.MIN_GRID_SIZE, Math.min(modSize, MeshDrawer.MAX_GRID_SIZE));
+    int newSize = Math.max(EnvironmentDrawer.MIN_GRID_SIZE, Math.min(modSize, EnvironmentDrawer.MAX_GRID_SIZE));
     if (curSize != newSize) {
       Point lastPosition = getPointOnView(point);
-      Point2D lastCoordinate = meshDrawer.getCoordinate(lastPosition);
-      meshDrawer.setGridSize(newSize);
-      Point2D newCoordinate = meshDrawer.getCoordinate(lastPosition);
+      Point2D lastCoordinate = environmentDrawer.getCoordinate(lastPosition);
+      environmentDrawer.setGridSize(newSize);
+      Point2D newCoordinate = environmentDrawer.getCoordinate(lastPosition);
       Point2D shift = new Point2D(lastCoordinate.x() - newCoordinate.x(),
           lastCoordinate.y() - newCoordinate.y());
-      Point2D offset = meshDrawer.getOffset();
-      meshDrawer.setOffset(new Point2D(offset.x() + shift.x(), offset.y() + shift.y()));
+      Point2D offset = environmentDrawer.getOffset();
+      environmentDrawer.setOffset(new Point2D(offset.x() + shift.x(), offset.y() + shift.y()));
       repaint();
     }
   }
 
   private Point2D getMouseCoordinate(MouseEvent e) {
-    return meshDrawer.getCoordinate(getPointOnView(e.getPoint()));
+    return environmentDrawer.getCoordinate(getPointOnView(e.getPoint()));
   }
 
 
   private Point getPointOnView(Point p) {
-    Rectangle r = MeshDrawer.getViewSpace(this.getSize());
+    Rectangle r = EnvironmentDrawer.getViewSpace(this.getSize());
     return new Point(p.x - r.x, p.y - r.y);
   }
 
@@ -150,7 +148,7 @@ public class SimulatorMeshPanel extends JPanel
 
   @Override
   public void mouseDragged(MouseEvent e) {
-    if (nodeAtPress != null && nodeAtPress.equals(meshDrawer.getSelectedNode())) {
+    if (nodeAtPress != null && nodeAtPress.equals(environmentDrawer.getSelectedNode())) {
       moveNode(nodeAtPress, e);
     } else {
       shiftView(e);
@@ -160,7 +158,7 @@ public class SimulatorMeshPanel extends JPanel
 
   @Override
   public void mouseMoved(MouseEvent e) {
-    Rectangle r = MeshDrawer.getViewSpace(this.getSize());
+    Rectangle r = EnvironmentDrawer.getViewSpace(this.getSize());
     if (r.contains(e.getX(), e.getY())) {
       this.setCursor(new Cursor(Cursor.HAND_CURSOR));
     } else {
@@ -173,7 +171,7 @@ public class SimulatorMeshPanel extends JPanel
   @Override
   public void mouseClicked(MouseEvent e) {
     Radio node = findNode(e);
-    meshDrawer.setSelectedNode(node);
+    environmentDrawer.setSelectedNode(node);
     repaint();
   }
 

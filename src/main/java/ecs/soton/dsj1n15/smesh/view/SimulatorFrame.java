@@ -28,9 +28,9 @@ import math.geom2d.transform.CircleInversion2D;
 public class SimulatorFrame extends JFrame {
   private static final long serialVersionUID = 8915866815288848109L;
 
-  private Mesh mesh;
+  private Environment environment = null;
   
-  private SimulatorMeshPanel pnlMesh;
+  private SimulatorViewPanel pnlView;
   private SimulatorControlPanel pnlControls;
   
   /**
@@ -43,7 +43,7 @@ public class SimulatorFrame extends JFrame {
     initialiseModel();
     setDefaultCloseOperation(EXIT_ON_CLOSE);
     
-    pnlMesh.setMesh(mesh);
+    pnlView.setEnvironment(environment);
   }
 
   /**
@@ -58,13 +58,13 @@ public class SimulatorFrame extends JFrame {
     getContentPane().setLayout(gridBagLayout);
 
     /* LHS TilePuzzlePanel displaying TilePuzzle */
-    pnlMesh = new SimulatorMeshPanel();
+    pnlView = new SimulatorViewPanel();
     GridBagConstraints gbc_pnlTilePuzzle = new GridBagConstraints();
     gbc_pnlTilePuzzle.insets = new Insets(5, 5, 5, 2);
     gbc_pnlTilePuzzle.fill = GridBagConstraints.BOTH;
     gbc_pnlTilePuzzle.gridx = 0;
     gbc_pnlTilePuzzle.gridy = 0;
-    getContentPane().add(pnlMesh, gbc_pnlTilePuzzle);
+    getContentPane().add(pnlView, gbc_pnlTilePuzzle);
     
     /* RHS Control panel for TilePuzzle interaction */
     pnlControls = new SimulatorControlPanel();
@@ -89,7 +89,7 @@ public class SimulatorFrame extends JFrame {
    * Initialise model.
    */
   private void initialiseModel() {
-    Environment environment = new Environment();
+    environment = new Environment();
     Forest forest1 = new Forest(new Rectangle2D(0, 0, 500, 500), 1);
     environment.getEnvironmentObjects().add(forest1);
     //environment.getEnvironmentObjects().addAll(forest1.generateTrees());
@@ -99,39 +99,38 @@ public class SimulatorFrame extends JFrame {
     environment.getEnvironmentObjects().add(forest3);
     Forest forest4 = new Forest(new Rectangle2D(0, 600, 1000, 200), 0.1);
     environment.getEnvironmentObjects().add(forest4);
-    mesh = new Mesh(1);
-    mesh.setEnvironment(environment);
     
+    //mesh = new Mesh(1);
     double z = 0.25;
     LoRaRadio node1 = new LoRaRadio(1);
     node1.setX(0);
     node1.setY(50);
     node1.setZ(z);
-    mesh.getNodes().add(node1);
+    environment.addNode(node1);
     
     LoRaRadio node2 = new LoRaRadio(2);
     node2.setX(50);
     node2.setY(0);
     node2.setZ(z);
-    mesh.getNodes().add(node2);
+    environment.addNode(node2);
     
     LoRaRadio node3 = new LoRaRadio(3);
     node3.setX(200);
     node3.setY(0);
     node3.setZ(z);
-    mesh.getNodes().add(node3);
+    environment.addNode(node3);
     
     LoRaRadio node4 = new LoRaRadio(4);
     node4.setX(310);
     node4.setY(200);
     node4.setZ(z);
-    mesh.getNodes().add(node4);
+    environment.addNode(node4);
     
     LoRaRadio node5 = new LoRaRadio(5);
     node5.setX(500);
     node5.setY(500);
     node5.setZ(z);
-    mesh.getNodes().add(node5);
+    environment.addNode(node5);
   }
   
 }

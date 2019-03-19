@@ -9,11 +9,6 @@ public class Mesh {
   /** A unique ID for the mesh */
   private final int id;
 
-  /** A list of all nodes that belong to the mesh */
-  private final Set<LoRaRadio> nodes = new LinkedHashSet<>();
-
-
-  private Environment environment = null;
 
   /**
    * Construct a new mesh.
@@ -26,18 +21,6 @@ public class Mesh {
 
   public int getID() {
     return id;
-  }
-
-  public Set<LoRaRadio> getNodes() {
-    return nodes;
-  }
-
-  public Environment getEnvironment() {
-    return environment;
-  }
-
-  public void setEnvironment(Environment environment) {
-    this.environment = environment;
   }
 
   @Override
