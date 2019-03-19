@@ -1,6 +1,10 @@
-package ecs.soton.dsj1n15.smesh.model;
+package ecs.soton.dsj1n15.smesh.model.lora;
 
 import java.util.Map;
+import ecs.soton.dsj1n15.smesh.model.Mesh;
+import ecs.soton.dsj1n15.smesh.model.Packet;
+import ecs.soton.dsj1n15.smesh.model.Radio;
+import ecs.soton.dsj1n15.smesh.model.Transmission;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import math.geom2d.Point2D;
 
@@ -130,22 +134,26 @@ public class LoRaRadio extends Radio {
   
   @Override
   public Transmission send(Packet packet) {
-    Environment environment = mesh.getEnvironment();
-    Transmission transmission = new LoRaTransmission(this, packet, environment.getTime());
-
+    LoRaTransmission transmission = new LoRaTransmission(this, packet, environment.getTime());
+    transmission.detect(this);
+    Transmission t2 = transmission;
+    t2.detect(this);
     return transmission;
   }
   
   public static void main(String[] args) {
+    
     Environment environment = new Environment();
     Mesh mesh = new Mesh(1);
-    mesh.setEnvironment(environment);
     
     Packet packet = new Packet();
-    Radio sender = new LoRaRadio(1);
-    //send
-    Radio receiver = new LoRaRadio(2);
-    sender.send(packet);
+    LoRaRadio sender = new LoRaRadio(1);
+    sender.environment = environment;
+    LoRaRadio receiver = new LoRaRadio(2);
+    receiver.environment = environment;
+    
+    Transmission tx = sender.send(packet);
+    tx.detect(receiver);
     
   }
 

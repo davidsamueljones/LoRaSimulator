@@ -1,4 +1,4 @@
-package ecs.soton.dsj1n15.smesh.model;
+package ecs.soton.dsj1n15.smesh.model.lora;
 
 /**
  * A full configuration for a LoRa radio with methods available for determining airtime using LoRa
