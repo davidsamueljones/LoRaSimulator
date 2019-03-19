@@ -3,65 +3,117 @@ package ecs.soton.dsj1n15.smesh.model;
 import math.geom2d.Point2D;
 
 /**
- * Interface for a general radio. Allows access to parameters and calculations that all radios must
- * make use of, e.g. frequency, bandwidth, SNR...
+ * Abstract class for a general radio. Radio Provides access to radio parameters and calculations
+ * that all radios must make use of, e.g. frequency, bandwidth, SNR...
  * 
  * @author David Jones (dsj1n15)
  */
-public interface Radio {
+public abstract class Radio {
+
+
+  /** X Coordinate of node */
+  protected double x;
+
+  /** Y Coordinate of node */
+  protected double y;
+
+  /** Z Coordinate of node */
+  protected double z;
+
+  /**
+   * @return The current x coordinate of the radio
+   */
+  public double getX() {
+    return x;
+  }
+
+  /**
+   * @param x The new x coordinate of the radio
+   */
+  public void setX(double x) {
+    this.x = x;
+  }
+
+  /**
+   * @return The current y coordinate of the radio
+   */
+  public double getY() {
+    return y;
+  }
+
+  /**
+   * @param y The new y coordinate of the radio
+   */
+  public void setY(double y) {
+    this.y = y;
+  }
+
+  /**
+   * @return The current z coordinate of the radio
+   */
+  public double getZ() {
+    return z;
+  }
+
+  /**
+   * @param z The new z coordinate of the radio
+   */
+  public void setZ(double z) {
+    this.z = z;
+  }
+
+  /**
+   * @return The XY coordinate of the radio
+   */
+  public Point2D getXY() {
+    return new Point2D(x, y);
+  }
 
   /**
    * @return The radio frequency in MHz
    */
-  public Point2D getXY();
-
-  /**
-   * @return The radio frequency in MHz
-   */
-  public double getFrequency();
+  public abstract double getFrequency();
 
   /**
    * @return The radio bandwidth in Hz
    */
-  public int getBandwidth();
+  public abstract int getBandwidth();
 
   /**
    * @return The height from the ground of the antenna in meters
    */
-  public double getAntennaHeight();
-
+  public abstract double getAntennaHeight();
 
   /**
    * @return The transmission power in dBm
    */
-  public int getTxPow();
+  public abstract int getTxPow();
 
   /**
    * @return The RX and TX gain of the antenna in dBm
    */
-  public double getAntennaGain();
-
+  public abstract double getAntennaGain();
   /**
    * @return The RX and TX loss of cabling in dBm
    */
-  public double getCableLoss();
+  public abstract double getCableLoss();
 
   /**
    * @return The receiver noise figure (NF) in dBm
    */
-  public double getNoiseFigure();
+  public abstract double getNoiseFigure();
 
   /**
    * @return The sensitivity of the radio in its current configuration.
    */
-  public double getSensitivity();
+  public abstract double getSensitivity();
 
   /**
    * Calculate the SNR required for a successful demodulation.
    * 
    * @return The calculated SNR in dBm
    */
-  public default double getRequiredSNR() {
+  public double getRequiredSNR() {
     return getSensitivity() - getNoiseFloor();
   }
 
@@ -72,14 +124,14 @@ public interface Radio {
    * @param snr SNR (in dBm) to validate
    * @return SNR as the demodulator would see it
    */
-  public double validateSNR(double snr);
+  public abstract double validateSNR(double snr);
 
   /**
    * Calculate the noise floor for the radio in its current configuration.
    * 
    * @return The calculated noise floor in dBm
    */
-  public default double getNoiseFloor() {
+  public double getNoiseFloor() {
     return Radio.getNoiseFloor(this);
   }
 
@@ -104,7 +156,7 @@ public interface Radio {
    * @param packet Packet to send
    * @return The transmission if successful
    */
-  public Transmission send(Packet packet);
+  public abstract Transmission send(Packet packet);
 
 
   /**
@@ -113,6 +165,6 @@ public interface Radio {
    * 
    * @return A full packet if it is available.
    */
-  public Packet recv();
-  
+  public abstract Packet recv();
+
 }
