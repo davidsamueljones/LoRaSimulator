@@ -1,5 +1,6 @@
 package ecs.soton.dsj1n15.smesh.model;
 
+import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import math.geom2d.Point2D;
 
 /**
@@ -9,17 +10,27 @@ import math.geom2d.Point2D;
  * @author David Jones (dsj1n15)
  */
 public abstract class Radio {
+  protected Environment environment;
 
-
-  /** X Coordinate of node */
   protected double x;
-
-  /** Y Coordinate of node */
   protected double y;
-
-  /** Z Coordinate of node */
   protected double z;
 
+  /**
+   * @return The environment the radio is located in
+   */
+  public Environment getEnvironment() {
+    return environment;
+  }
+
+  /**
+   * @param environment The environment to place the radio in
+   */
+  public void setEnvironment(Environment environment) {
+    this.environment = environment;
+  }
+
+  
   /**
    * @return The current x coordinate of the radio
    */
@@ -93,6 +104,7 @@ public abstract class Radio {
    * @return The RX and TX gain of the antenna in dBm
    */
   public abstract double getAntennaGain();
+
   /**
    * @return The RX and TX loss of cabling in dBm
    */
