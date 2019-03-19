@@ -1,96 +1,141 @@
 package ecs.soton.dsj1n15.smesh.model;
 
+/**
+ * A full configuration for a LoRa radio with methods available for determining airtime using LoRa
+ * modulation consistent across all LoRa radios.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public class LoRaCfg {
+  public static final int CR_4_5 = 5;
+  public static final int CR_4_6 = 6;
+  public static final int CR_4_7 = 7;
+  public static final int CR_4_8 = 8;
+
   public static final int MIN_SF = 6;
   public static final int MAX_SF = 12;
-  
+
   public static final double BAND_868_MHZ = 868f;
   public static final double BAND_869_MHZ = 869.525f;
-  
-  /** The centre frequency in MHz */
+
   private double freq;
-
-  /** The spreading factor */
   private int sf;
-
-  /** The transmit power in dB */
   private int txPow;
-
-  /** The centre frequency in Hz */
   private int bw;
-
-  /** Coding rate 4 / n */
   private int cr;
-
-  /** Number of preamble symbols */
   private int preambleSymbols;
-
-  /** Whether CRC is enabled */
   private boolean crc;
-
-  /** Whether the explicit header is enabled */
   private boolean explicitHeader;
 
+  /**
+   * @return The current centre frequency in MHz
+   */
   public double getFreq() {
     return freq;
   }
 
+  /**
+   * @param freq The new centre frequency in MHz
+   */
   public void setFreq(double freq) {
     this.freq = freq;
   }
 
+  /**
+   * @return The current LoRa spreading factor (chips = 2 ^ sf)
+   */
   public int getSF() {
     return sf;
   }
 
+  /**
+   * @param sf The new LoRa spreading factor (chips = 2 ^ sf)
+   */
   public void setSF(int sf) {
     this.sf = sf;
   }
 
+  /**
+   * @return The current transmission power in dBm
+   */
   public int getTxPow() {
     return txPow;
   }
 
+  /**
+   * @param txPow The new transmission power in dBm
+   */
   public void setTxPow(int txPow) {
     this.txPow = txPow;
   }
 
+  /**
+   * @param bw The new bandwidth in Hz
+   */
   public int getBW() {
     return bw;
   }
 
+  /**
+   * @param bw The new bandwidth in Hz
+   */
   public void setBW(int bw) {
     this.bw = bw;
   }
 
+  /**
+   * @return The current denominator for the coding rate. Actual CR = 4 / cr.
+   */
   public int getCR() {
     return cr;
   }
 
+  /**
+   * @param cr The new denominator for the coding rate. Actual CR = 4 / cr.
+   */
   public void setCR(int cr) {
     this.cr = cr;
   }
 
+  /**
+   * @return The current number of user programmable preamble symbols to send (actual -4.25)
+   */
   public int getPreambleSymbols() {
     return preambleSymbols;
   }
 
+  /**
+   * @param preambleSymbols The new number of user programmable preamble symbols to send (actual
+   *        -4.25)
+   */
   public void setPreambleSymbols(int preambleSymbols) {
     this.preambleSymbols = preambleSymbols;
   }
 
+  /**
+   * @return Whether the CRC is enabled
+   */
   public boolean isCRC() {
     return crc;
   }
 
+  /**
+   * @param crc Whether the CRC should be enabled
+   */
   public void setCrc(boolean crc) {
     this.crc = crc;
   }
 
+  /**
+   * @return Whether the explicit header is enabled
+   */
   public boolean isExplicitHeader() {
     return explicitHeader;
   }
 
+  /**
+   * @param explicitHeader Whether the explicit header should be enabled
+   */
   public void setExplicitHeader(boolean explicitHeader) {
     this.explicitHeader = explicitHeader;
   }
@@ -107,9 +152,20 @@ public class LoRaCfg {
   }
 
   /**
-   * Calculate the airtime for a given LoRa configuration and packet length. All equations used from
-   * (modified slightly for our formats): <br>
-   * https://www.semtech.com/uploads/documents/LoraDesignGuide_STD.pdf
+   * Calculate preamble airtime for this instance. <br>
+   * See {@link #calculatePreambleTime(LoRaCfg cfg)}.
+   *
+   * @return Total send time for packet in ms
+   */
+  public int calculatePreambleTime() {
+    return calculatePreambleTime(this);
+  }
+
+  /**
+   * Calculate the airtime for a full packet transmission for a given LoRa configuration and packet
+   * length. <br>
+   * All equations (modified for our formats) from: <a
+   * href=https://www.semtech.com/uploads/documents/LoraDesignGuide_STD.pdf>LoRa Design Guide</a>
    * 
    * @param cfg LoRa configuration
    * @param packetLen Length of packet to send
@@ -129,6 +185,19 @@ public class LoRaCfg {
   }
 
   /**
+   * Calculate the preamble airtime for a given LoRa configuration. See
+   * {@link #calculatePacketAirtime(LoRaCfg cfg, int packetLen)} for full packet airtime calculation
+   * and equation reference.
+   * 
+   * @param cfg LoRa configuration
+   * @return Send time for preamble in ms
+   */
+  public static int calculatePreambleTime(LoRaCfg cfg) {
+    double symbolTime = 1000.0 * Math.pow(2, cfg.sf) / (double) cfg.bw; // ms
+    return (int) Math.ceil((cfg.preambleSymbols + 4.25) * symbolTime);
+  }
+
+  /**
    * Check if low data rate is required for this instance.<br>
    * See {@link #sLDRRequired(LoRaCfg cfg)}.
    * 
@@ -138,7 +207,7 @@ public class LoRaCfg {
   public boolean isLDRRequired() {
     return isLDRRequired(this);
   }
-  
+
   /**
    * Check if low data rate is required. Value of 16.0 for symbol time required for enabling low
    * data rate is copied from RadioHead library. No source provided but keep the same for
