@@ -6,10 +6,12 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import ecs.soton.dsj1n15.smesh.model.LoRaCfg;
 import ecs.soton.dsj1n15.smesh.model.LoRaRadio;
 import ecs.soton.dsj1n15.smesh.model.Radio;
+import ecs.soton.dsj1n15.smesh.model.Transmission;
 import ecs.soton.dsj1n15.smesh.model.propogation.COST235OLPropagationModel;
 import ecs.soton.dsj1n15.smesh.model.propogation.FreeSpacePropagationModel;
 import ecs.soton.dsj1n15.smesh.model.propogation.PlainEarthPropagationModel;
@@ -31,13 +33,24 @@ public class Environment {
   /** A list of objects in the environment */
   private final Set<EnvironmentObject> objects = new LinkedHashSet<>();
 
+  private long time;
+  
+  private final Set<Transmission> transmissions = new LinkedHashSet<>();
 
   public Set<EnvironmentObject> getEnvironmentObjects() {
     return objects;
   }
 
-  public double getReceivedPower(LoRaRadio tx, LoRaRadio rx) {
-    double txPow = tx.getLoRaCfg().getTxPow() + tx.getAntennaGain() - tx.getCableLoss();
+  public double getSNR(Radio tx, Radio rx) {
+    double strength = getReceivedPower(tx, rx);
+    double noise = rx.getNoiseFloor();
+    double snr = rx.validateSNR(strength - noise);
+    return snr;
+  }
+
+
+  public double getReceivedPower(Radio tx, Radio rx) {
+    double txPow = tx.getTxPow() + tx.getAntennaGain() - tx.getCableLoss();
     double rxGain = rx.getAntennaGain() - rx.getCableLoss();
     return txPow - getAveragedPathLoss(tx, rx) + rxGain;
   }
@@ -61,9 +74,11 @@ public class Environment {
       loss += object.getLOSPathLoss(tx, rx);
       loss += object.getProximityPathLoss(los);
     }
+    
 
     return loss;
   }
+  
 
 
 
