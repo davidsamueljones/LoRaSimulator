@@ -1,68 +1,47 @@
 package ecs.soton.dsj1n15.smesh.model.lora;
 
-import java.util.Map;
-import ecs.soton.dsj1n15.smesh.model.Mesh;
 import ecs.soton.dsj1n15.smesh.model.Packet;
 import ecs.soton.dsj1n15.smesh.model.Radio;
 import ecs.soton.dsj1n15.smesh.model.Transmission;
-import ecs.soton.dsj1n15.smesh.model.environment.Environment;
-import math.geom2d.Point2D;
 
 public class LoRaRadio extends Radio {
   public static final double MAX_SENSITIVITY = -137;
-  
-  /** A unique ID within the mesh */
-  private final int id;
-
-  /** The mesh that the node belongs to */
-  private Mesh mesh;
+  public static final double DEFAULT_ANTENNA_GAIN = 3;
+  public static final double DEFAULT_CABLE_LOSS = 1.5;
 
   /** Radio configuration */
-  protected final LoRaCfg cfg;
+  private final LoRaCfg cfg;
 
   /** Antenna gain */
-  protected double antennaGain = 3;
-  
+  private double antennaGain;
+
   /** Cable loss */
-  protected double cableLoss = 1.5;
-  
-  /** TODO: List of known neighbour information */
-  // Map<Node, Integer> discoveredNeighbours;
+  private double cableLoss;
 
-  /** TODO: Routing table? */
+  /** Current transmission */
+  private Transmission transmission = null;
 
-
-
+  /**
+   * Instantiate a LoRa Radio using the default configuration.
+   * 
+   * @param id ID of the radio
+   */
   public LoRaRadio(int id) {
-    this(id, new LoRaCfg());
+    this(id, LoRaCfg.getDefault()); // FIXME
   }
 
+
   public LoRaRadio(int id, LoRaCfg cfg) {
-    this.id = id;
+    super(id);
     this.cfg = cfg;
-    cfg.setFreq(LoRaCfg.BAND_868_MHZ); // FIXME
-    cfg.setBW(125000);
-    cfg.setSF(12);
+    this.antennaGain = DEFAULT_ANTENNA_GAIN;
+    this.cableLoss = DEFAULT_CABLE_LOSS;
   }
 
   public LoRaCfg getLoRaCfg() {
     return cfg;
   }
 
-  public int getID() {
-    return id;
-  }
-
-  public Mesh getMesh() {
-    return mesh;
-  }
-
-  public void setMesh(Mesh mesh) {
-    this.mesh = mesh;
-  }
-
- 
-  
   @Override
   public double getFrequency() {
     return cfg.getFreq();
@@ -77,17 +56,17 @@ public class LoRaRadio extends Radio {
   public double getSensitivity() {
     return getNoiseFloor() + getRequiredSNR(cfg.getSF());
   }
-  
+
   /**
    * Get the SNR required for demodulation using a given spreading factor.
    * 
-   * @param sf LoRa spreading factor (7-12) 
+   * @param sf LoRa spreading factor (7-12)
    * @return The required SNR in dBm
    */
   public static double getRequiredSNR(int sf) {
     return ((sf - LoRaCfg.MIN_SF) * -2.5) - 5;
   }
-  
+
 
   @Override
   public double getAntennaGain() {
@@ -106,7 +85,7 @@ public class LoRaRadio extends Radio {
   public void setCableLoss(double cableLoss) {
     this.cableLoss = cableLoss;
   }
-  
+
   @Override
   public int getBandwidth() {
     return cfg.getBW();
@@ -118,50 +97,120 @@ public class LoRaRadio extends Radio {
   }
 
   @Override
-  public int getTxPow() { 
+  public int getTxPow() {
     return cfg.getTxPow();
   }
 
   /**
-   * {@inheritDoc}
-   * <br>
+   * {@inheritDoc} <br>
    * The maximum SNR of the LoRa demodulator (RFM95/SX1276/etc...) is limited to 10.
    */
   @Override
   public double validateSNR(double snr) {
     return Math.min(snr, 10);
   }
-  
+
   @Override
   public Transmission send(Packet packet) {
-    LoRaTransmission transmission = new LoRaTransmission(this, packet, environment.getTime());
-    transmission.detect(this);
-    Transmission t2 = transmission;
-    t2.detect(this);
+    if (transmission != null) {
+      throw new IllegalStateException("Node is already transmitting");
+    }
+    long airtime = cfg.calculatePacketAirtime(packet.length);
+    transmission = new Transmission(this, packet, environment.getTime(), airtime);
     return transmission;
-  }
-  
-  public static void main(String[] args) {
-    
-    Environment environment = new Environment();
-    Mesh mesh = new Mesh(1);
-    
-    Packet packet = new Packet();
-    LoRaRadio sender = new LoRaRadio(1);
-    sender.environment = environment;
-    LoRaRadio receiver = new LoRaRadio(2);
-    receiver.environment = environment;
-    
-    Transmission tx = sender.send(packet);
-    tx.detect(receiver);
-    
   }
 
   @Override
   public Packet recv() {
-    // TODO Auto-generated method stub
+    for (Transmission transmission : environment.getTransmissions()) {
+      Radio sender = transmission.sender;
+      // if ()
+      //
+      // if (sender.getFrequency() == getFrequency() && sender instanceof ) {
+      //
+      // }
+    }
     return null;
   }
+
+  @Override
+  public boolean activityDetection() {
+    // Can't detect a transmission that isn't LoRa
+    // if (!(transmission instanceof LoRaTransmission)) {
+    // return false;
+    // }
+    // TODO: Attempt to detect preamble
+    return false;
+  }
+
+  @Override
+  public Transmission getCurrentTransmission() {
+    return transmission;
+  }
+
+  @Override
+  public boolean canCommunicate(Radio rx) {
+    if (rx instanceof LoRaRadio) {
+      boolean receivable = true;
+      // Check generic parameters
+      receivable &= (getFrequency() == rx.getFrequency());
+      receivable &= (getBandwidth() == rx.getBandwidth());
+      // Check LoRa specific parameters
+      LoRaCfg rxCfg = ((LoRaRadio) rx).getLoRaCfg();
+      receivable &= (cfg.getSF() == rxCfg.getSF());
+      receivable &= (cfg.getPreambleSymbols() >= rxCfg.getPreambleSymbols());
+      receivable &= (cfg.isExplicitHeader() == rxCfg.isExplicitHeader());
+      // Some parameters may be different if explicit header is enabled
+      if (!cfg.isExplicitHeader() && !rxCfg.isExplicitHeader()) {
+        receivable &= (cfg.getCR() == rxCfg.getCR());
+        // TODO: Add packet length check
+      }
+      return receivable;
+    }
+    return false;
+  }
+
+  @Override
+  public boolean canInterfere(Radio rx) {
+    // Calculate receiver frequency range
+    double rxMin = rx.getFrequency() - rx.getBandwidth() / 1e6;
+    double rxMax = rx.getFrequency() + rx.getBandwidth() / 1e6;
+    // Calculate interferer frequency range
+    double txMin = getFrequency() - getBandwidth() / 1e6;
+    double txMax = getFrequency() + getBandwidth() / 1e6;
+    // If the frequencies cross at all assume interference is possible
+    if (txMin <= rxMax && txMax >= rxMin) {
+      // Special behaviour with other LoRa signals allows those with a different chirp rate to be
+      // ignored (they are orthogonal)
+      if (rx instanceof LoRaRadio) {
+        double chirpRate = ((LoRaRadio) rx).getChirpRate();
+        if (chirpRate != getChirpRate()) {
+          return false;
+        }
+      }
+      // For other signals just expect the interference
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  public double getChirpRate() {
+    double bw = getBandwidth() / 1e6;
+    return (bw * bw) / Math.pow(2, cfg.getSF());
+  }
+
+  @Override
+  public void timePassed() {
+    // TODO Auto-generated method stub
+
+  }
+
+  @Override
+  public String toString() {
+    return String.format("LoRaRadio [id=%d, pos=(%d, %d)]", id, (int) x, (int) y);
+  }
+
 
   @Override
   public int hashCode() {
@@ -184,5 +233,5 @@ public class LoRaRadio extends Radio {
       return false;
     return true;
   }
-  
+
 }
