@@ -250,7 +250,10 @@ public class EnvironmentDrawer {
           g.setColor(Color.BLACK);
         }
         g.draw(s.asAwtShape());
-
+        g.setColor(Color.BLACK);
+        if (node.getCurrentTransmission() == null) {
+          g.drawString(String.format("%d", (int) environment.getRSSI(node)), p.x, p.y);
+        }
         nodeShapes.put(node, s);
       }
     }
@@ -260,7 +263,7 @@ public class EnvironmentDrawer {
     return nodeShapes;
   }
 
-  private void drawRoute(Graphics2D g, Radio a, Radio b) {
+  private void drawRoute(Graphics2D g, Radio a, Radio b) {    
     Point pa = getViewPosition(a.getXY());
     Point pb = getViewPosition(b.getXY());
     Point mid = new Point(pa.x + (pb.x - pa.x) / 2, pa.y + (pb.y - pa.y) / 2);
@@ -285,7 +288,7 @@ public class EnvironmentDrawer {
 
     Line2D line = new Line2D(pa.x, pa.y, pb.x, pb.y);
     double snr = environment.getReceiveSNR(a, b);
-
+    snr = Math.min(environment.getReceiveSNR(b, a), snr);
     int opacity = 0;
     if (snr >= b.getRequiredSNR()) {
       opacity = 255;
@@ -294,13 +297,16 @@ public class EnvironmentDrawer {
       double strength = leeway + snr - b.getRequiredSNR();
       opacity = (int) Math.max(0, Math.min(255, strength * 255 / leeway));
     }
-
-    g.setColor(new Color(0, 0, 0, opacity));
-    g.draw(line.asAwtShape());
-    g.drawString(String.format("%d", (int) snr), mid.x, mid.y);
-
-
-
+    if (a.canCommunicate(b)) {
+      g.setColor(new Color(0, 0, 0, opacity));
+      g.draw(line.asAwtShape());
+      g.drawString(String.format("%d", (int) snr), mid.x, mid.y);
+    } else if (a.canInterfere(b)) {
+      g.setColor(new Color(255, 0, 0, opacity));
+      g.draw(line.asAwtShape());
+    } else {
+      return;
+    }   
   }
 
   public int getGridSize() {
