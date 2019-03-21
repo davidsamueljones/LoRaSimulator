@@ -1,14 +1,9 @@
 package ecs.soton.dsj1n15.smesh.model.environment;
 
-import java.awt.Color;
-import java.awt.Point;
 import java.awt.Shape;
 import java.util.List;
 import ecs.soton.dsj1n15.smesh.model.Radio;
-import ecs.soton.dsj1n15.smesh.model.propogation.ITURPropagationModel;
-import ecs.soton.dsj1n15.smesh.model.propogation.PropagationModel;
 import math.geom2d.Point2D;
-import math.geom2d.Shape2D;
 import math.geom2d.conic.Circle2D;
 import math.geom2d.line.Line2D;
 
@@ -17,7 +12,7 @@ public class Tree extends EnvironmentObject {
   private Circle2D shape;
 
   public Tree(Point2D pos) {
-    // FROM: An Empirical Propagation Model for Forest
+
     // Environments at Tree Trunk Level
 
     shape = new Circle2D(pos, 0.5);
@@ -35,7 +30,7 @@ public class Tree extends EnvironmentObject {
     return EnvironmentObject.getPassThroughDistance(EnvironmentObject.getCirclePolygon(shape),
         line);
   }
-  
+
   @Override
   public double getLOSPathLoss(Radio a, Radio b) {
     return 0;
@@ -43,6 +38,7 @@ public class Tree extends EnvironmentObject {
 
   @Override
   public double getProximityPathLoss(Line2D line) {
+    // FROM: An Empirical Propagation Model for Forest
     final double proximityPathLoss = 10;
     final double proximityRequirement = 1;
     double loss = 0;
@@ -55,7 +51,7 @@ public class Tree extends EnvironmentObject {
     return loss;
   }
 
-  
+
   @Override
   public List<Point2D> getIntersects(Line2D line) {
     return getIntersects(EnvironmentObject.getCirclePolygon(shape), line);
@@ -65,8 +61,5 @@ public class Tree extends EnvironmentObject {
   public List<Point2D> getPassThroughPoints(Line2D line) {
     return getIntersects(EnvironmentObject.getCirclePolygon(shape), line);
   }
-
-
-
 
 }

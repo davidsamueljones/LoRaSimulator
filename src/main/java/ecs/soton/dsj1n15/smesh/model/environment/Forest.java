@@ -1,22 +1,17 @@
 package ecs.soton.dsj1n15.smesh.model.environment;
 
 import java.awt.Color;
-import java.awt.Polygon;
 import java.awt.Shape;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import ecs.soton.dsj1n15.smesh.model.Radio;
-import ecs.soton.dsj1n15.smesh.model.propogation.COST235OLPropagationModel;
 import ecs.soton.dsj1n15.smesh.model.propogation.ITURPropagationModel;
 import ecs.soton.dsj1n15.smesh.model.propogation.PropagationModel;
 import math.geom2d.Box2D;
 import math.geom2d.Point2D;
-import math.geom2d.Shape2D;
-import math.geom2d.domain.Domain2D;
 import math.geom2d.line.Line2D;
 import math.geom2d.polygon.Polygon2D;
-import math.geom2d.polygon.Rectangle2D;
 
 public class Forest extends EnvironmentObject {
 
