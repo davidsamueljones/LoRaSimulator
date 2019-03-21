@@ -7,16 +7,37 @@ package ecs.soton.dsj1n15.smesh.model.lora;
  * @author David Jones (dsj1n15)
  */
 public class LoRaCfg {
+  /* 
+   * Coding rates
+   */
   public static final int CR_4_5 = 5;
   public static final int CR_4_6 = 6;
   public static final int CR_4_7 = 7;
   public static final int CR_4_8 = 8;
 
+  /* 
+   * Spreading factor limits 
+   */
   public static final int MIN_SF = 6;
   public static final int MAX_SF = 12;
 
-  public static final double BAND_868_MHZ = 868f;
-  public static final double BAND_869_MHZ = 869.525f;
+  
+  /*
+   * 125kHz or 250kHz (1% duty cycle) - 14dBm
+   */
+  public static final double BAND_G1_C0_MHZ = 868.1f;
+  public static final double BAND_G1_C1_MHZ = 868.3f;
+  public static final double BAND_G1_C2_MHZ = 868.5f;
+  public static final double BAND_G_C3_MHZ = 867.1f;
+  public static final double BAND_G_C4_MHZ = 867.3f;
+  public static final double BAND_G_C5_MHZ = 867.5f;
+  public static final double BAND_G_C6_MHZ = 867.7f;
+  public static final double BAND_G_C7_MHZ = 867.9f;
+  
+  /*
+   * 125kHz or 250kHz (10% duty cycle) - 27dBm
+   */
+  public static final double BAND_G3_MID_MHZ = 869.525f;
 
   private double freq;
   private int sf;
@@ -172,7 +193,7 @@ public class LoRaCfg {
    * @return Total send time for packet in ms
    */
   public static int calculatePacketAirtime(LoRaCfg cfg, int packetLen) {
-    double symbolTime = 1000.0 * Math.pow(2, cfg.sf) / (double) cfg.bw; // ms
+    double symbolTime = 1000.0 * Math.pow(2, cfg.sf) / cfg.bw; // ms
     double preambleTime = (cfg.preambleSymbols + 4.25) * symbolTime;
     boolean ldr = isLDRRequired(cfg);
     int pscTop = 8 * packetLen - 4 * cfg.sf + 28 + 16 - 20 * (cfg.explicitHeader ? 1 : 0);
@@ -193,7 +214,7 @@ public class LoRaCfg {
    * @return Send time for preamble in ms
    */
   public static int calculatePreambleTime(LoRaCfg cfg) {
-    double symbolTime = 1000.0 * Math.pow(2, cfg.sf) / (double) cfg.bw; // ms
+    double symbolTime = 1000.0 * Math.pow(2, cfg.sf) / cfg.bw; // ms
     return (int) Math.ceil((cfg.preambleSymbols + 4.25) * symbolTime);
   }
 
@@ -221,4 +242,87 @@ public class LoRaCfg {
     return symbol_time > 16.0;
   }
 
+  
+  /**
+   * @return Profile configured for LoRaWAN D0
+   */
+  public static LoRaCfg getDataRate0() {
+    LoRaCfg cfg = getDefault();
+    cfg.setSF(12);
+    return cfg;
+  }
+  
+  /**
+   * @return Profile configured for LoRaWAN D1
+   */
+  public static LoRaCfg getDataRate1() {
+    LoRaCfg cfg = getDefault();
+    cfg.setSF(11);
+    return cfg;
+  }
+  
+  /**
+   * @return Profile configured for LoRaWAN D2
+   */
+  public static LoRaCfg getDataRate2() {
+    LoRaCfg cfg = getDefault();
+    cfg.setSF(10);
+    return cfg;
+  }
+  
+  /**
+   * @return Profile configured for LoRaWAN D3
+   */
+  public static LoRaCfg getDataRate3() {
+    LoRaCfg cfg = getDefault();
+    cfg.setSF(9);
+    return cfg;
+  }
+  
+  /**
+   * @return Profile configured for LoRaWAN D4
+   */
+  public static LoRaCfg getDataRate4() {
+    LoRaCfg cfg = getDefault();
+    cfg.setSF(8);
+    return cfg;
+  }
+  
+  /**
+   * @return Profile configured for LoRaWAN D5
+   */
+  public static LoRaCfg getDataRate5() {
+    LoRaCfg cfg = getDefault();
+    cfg.setSF(7);
+    return cfg;
+  }
+  
+  /**
+   * @return Profile configured for LoRaWAN D6
+   */
+  public static LoRaCfg getDataRate6() {
+    LoRaCfg cfg = getDefault();
+    cfg.setSF(7);
+    cfg.setBW(250000);
+    return cfg;
+  }
+  
+  /**
+   * Default parameters, by default uses G3 ETSI band.
+   * 
+   * @return Profile with default LoRaWAN configuration
+   */
+  public static LoRaCfg getDefault() {
+    LoRaCfg cfg = new LoRaCfg();
+    cfg.setFreq(BAND_G3_MID_MHZ);
+    cfg.setPreambleSymbols(5);
+    cfg.setSF(MAX_SF);
+    cfg.setTxPow(14);
+    cfg.setBW(125000);
+    cfg.setCrc(true);
+    cfg.setExplicitHeader(true);
+    cfg.setCR(CR_4_5);
+    return cfg;
+  }
+  
 }
