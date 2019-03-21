@@ -1,32 +1,13 @@
 package ecs.soton.dsj1n15.smesh.model.environment;
 
-import java.awt.Point;
-import java.awt.Rectangle;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Random;
 import java.util.Set;
 import ecs.soton.dsj1n15.smesh.model.Radio;
 import ecs.soton.dsj1n15.smesh.model.Transmission;
-import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
-import ecs.soton.dsj1n15.smesh.model.lora.LoRaRadio;
-import ecs.soton.dsj1n15.smesh.model.propogation.COST235OLPropagationModel;
-import ecs.soton.dsj1n15.smesh.model.propogation.FreeSpacePropagationModel;
 import ecs.soton.dsj1n15.smesh.model.propogation.PlainEarthPropagationModel;
 import ecs.soton.dsj1n15.smesh.model.propogation.PropagationModel;
-import math.geom2d.Point2D;
-import math.geom2d.Shape2D;
-import math.geom2d.conic.Circle2D;
-import math.geom2d.curve.AbstractContinuousCurve2D;
 import math.geom2d.line.Line2D;
-import math.geom2d.line.LineSegment2D;
-import math.geom2d.line.StraightLine2D;
-import math.geom2d.polygon.LinearRing2D;
-import math.geom2d.polygon.Polygon2D;
-import math.geom2d.polygon.Rectangle2D;
-import math.geom2d.polygon.SimplePolygon2D;
 
 public class Environment {
 
@@ -36,24 +17,79 @@ public class Environment {
   /** A list of all nodes in the environment */
   private final Set<Radio> nodes = new LinkedHashSet<>();
 
+  /** The current time in the environment */
   private long time;
 
-  private final Set<Transmission> transmissions = new LinkedHashSet<>();
+  public static double mw2dbm(double mw) {
+    return 10 * Math.log10(mw);
+  }
 
-  /** Temperature of the environment in degrees Celsius */
-  // private double temperature = 11;
+  public static double dbm2mw(double dbm) {
+    return Math.pow(10, dbm / 10);
+  }
 
   public Set<EnvironmentObject> getEnvironmentObjects() {
     return objects;
   }
 
+  // public static void main(String[] args) {
+  //
+  //// Environment environment = new Environment();
+  //// double z = 0.25;
+  //// LoRaRadio sender = new LoRaRadio(1, LoRaCfg.getDefault());
+  //// sender.setZ(z);
+  //// environment.addNode(sender);
+  //// LoRaRadio receiver = new LoRaRadio(2, LoRaCfg.getDefault());
+  //// environment.addNode(receiver);
+  //// LoRaRadio interferer = new LoRaRadio(3, LoRaCfg.getDefault());
+  //// environment.addNode(interferer);
+  ////
+  ////
+  //// System.out.println(getReceivePower(se d));
+  //// Packet packet = new Packet(10);
+  ////
+  ////
+  ////
+  ////
+  //// environment.setTime(500);
+  //// Transmission tx = sender.send(packet);
+  //// for (int i=0; i < 20; i++) {
+  //// System.out.println(environment.getTransmissions().size());
+  //// environment.clearFinishedTransmissions();
+  //// long curTime = environment.getTime();
+  //// environment.setTime(curTime + 100);
+  //// }
+  // }
+
   public double getReceiveSNR(Radio tx, Radio rx) {
     double strength = getReceivePower(tx, rx);
-    double noise = rx.getNoiseFloor();
+    double noise = getNoise(rx, tx.getCurrentTransmission());
     double snr = rx.validateSNR(strength - noise);
     return snr;
   }
 
+  public double getRSSI(Radio rx) {
+    return getNoise(rx, null);
+  }
+
+  public double getNoise(Radio rx, Transmission target) {
+    // Calculate base noise level
+    double noise = dbm2mw(rx.getNoiseFloor());
+    // Sum the effect of any interfering transmissions on the target transmission
+    for (Transmission interferer : getTransmissions()) {
+      // Can't transmit and receive at the same time
+      if (interferer.sender == rx) {
+        continue;
+      }
+      // Not noise if its the signal we want or it doesn't interfere
+      if (target == interferer || !interferer.sender.canInterfere(rx)) {
+        continue;
+      }
+      double rp = dbm2mw(getReceivePower(interferer.sender, rx));
+      noise += rp;
+    }
+    return mw2dbm(noise);
+  }
 
   public double getReceivePower(Radio tx, Radio rx) {
     double txPow = tx.getTxPow() + tx.getAntennaGain() - tx.getCableLoss();
@@ -71,7 +107,7 @@ public class Environment {
     // Calculate the line of sight between transmitter and receive
     Line2D los = new Line2D(tx.getXY(), rx.getXY());
     // Get the loss in free space
-    PropagationModel freeSpaceModel =
+    PropagationModel freeSpaceModel = // new FreeSpacePropagationModel(rx.getFrequency());
         new PlainEarthPropagationModel(rx.getAntennaHeight(), tx.getAntennaHeight());
     double loss = freeSpaceModel.getPathLoss(los.length());
 
@@ -84,10 +120,6 @@ public class Environment {
     return loss;
   }
 
-  public static void main(String[] args) {
-    Radio radio = new LoRaRadio(1);
-    System.out.println(radio.getNoiseFloor());
-  }
 
   public long getTime() {
     return time;
@@ -99,6 +131,16 @@ public class Environment {
 
   public Set<Radio> getNodes() {
     return nodes;
+  }
+
+  public Set<Transmission> getTransmissions() {
+    HashSet<Transmission> transmissions = new LinkedHashSet<>();
+    for (Radio radio : nodes) {
+      if (radio.getCurrentTransmission() != null) {
+        transmissions.add(radio.getCurrentTransmission());
+      }
+    }
+    return transmissions;
   }
 
   public void addNode(Radio radio) {
@@ -118,7 +160,5 @@ public class Environment {
     radio.setEnvironment(null);
     nodes.remove(radio);
   }
-
-
 
 }
