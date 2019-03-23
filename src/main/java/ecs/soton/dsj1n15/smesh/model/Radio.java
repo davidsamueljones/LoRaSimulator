@@ -1,6 +1,7 @@
 package ecs.soton.dsj1n15.smesh.model;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
@@ -14,19 +15,16 @@ import math.geom2d.Point2D;
  */
 public abstract class Radio {
   /** A mapping of all transmissions seen to observation data */
-  protected Map<Transmission, Set<ReceiveData>> receives = new LinkedHashMap<>();
-
+  protected Map<Long, ReceiveData> timeMap = new LinkedHashMap<>();
+  
   /** A unique ID */
   protected final int id;
-  
+
   protected Environment environment;
 
   protected double x;
   protected double y;
   protected double z;
-
-  /** The last time the radio state was checked */
-  protected long lastTime;
 
   /**
    * Instantiate a Radio.
@@ -36,7 +34,7 @@ public abstract class Radio {
   public Radio(int id) {
     this.id = id;
   }
-  
+
   /**
    * @return The Radio ID
    */
@@ -56,7 +54,7 @@ public abstract class Radio {
    */
   public void setEnvironment(Environment environment) {
     this.environment = environment;
-    this.lastTime = Long.MIN_VALUE;
+    //this.lastTime = Long.MIN_VALUE;
   }
 
   /**
@@ -199,13 +197,15 @@ public abstract class Radio {
   public abstract Transmission send(Packet packet);
 
   /**
-   * Record transmission information viewable by the current radio. If a full packet receive has
-   * occurred since the last check, calculate the probability of its success, return it on success.
-   * 
-   * @return A full packet if it is available.
+   * Record transmission information viewable by the current radio.
    */
-  public abstract Packet recv();
+  public abstract void listen();
 
+  /**
+   * Process any captured transmission information to receive any possible packets.
+   */
+  public abstract void decode();
+  
   /**
    * Use the recorded transmission information to check if there are any ongoing transmissions that
    * would affect a transmission from this radio.
@@ -240,10 +240,5 @@ public abstract class Radio {
    * @return Whether the two radios interfere
    */
   public abstract boolean canInterfere(Radio b);
-
-  /**
-   * Use the time from the environment to carry out any behaviour since last time passed event.
-   */
-  public abstract void timePassed();
 
 }

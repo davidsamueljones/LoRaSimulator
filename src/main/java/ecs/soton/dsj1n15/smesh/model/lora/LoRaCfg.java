@@ -7,7 +7,7 @@ package ecs.soton.dsj1n15.smesh.model.lora;
  * @author David Jones (dsj1n15)
  */
 public class LoRaCfg {
-  /* 
+  /*
    * Coding rates
    */
   public static final int CR_4_5 = 5;
@@ -15,13 +15,13 @@ public class LoRaCfg {
   public static final int CR_4_7 = 7;
   public static final int CR_4_8 = 8;
 
-  /* 
-   * Spreading factor limits 
+  /*
+   * Spreading factor limits
    */
   public static final int MIN_SF = 6;
   public static final int MAX_SF = 12;
 
-  
+
   /*
    * 125kHz or 250kHz (1% duty cycle) - 14dBm
    */
@@ -33,7 +33,7 @@ public class LoRaCfg {
   public static final double BAND_G_C5_MHZ = 867.5f;
   public static final double BAND_G_C6_MHZ = 867.7f;
   public static final double BAND_G_C7_MHZ = 867.9f;
-  
+
   /*
    * 125kHz or 250kHz (10% duty cycle) - 27dBm
    */
@@ -193,7 +193,7 @@ public class LoRaCfg {
    * @return Total send time for packet in ms
    */
   public static int calculatePacketAirtime(LoRaCfg cfg, int packetLen) {
-    double symbolTime = 1000.0 * Math.pow(2, cfg.sf) / cfg.bw; // ms
+    double symbolTime = getSymbolTime(cfg); // ms
     double preambleTime = (cfg.preambleSymbols + 4.25) * symbolTime;
     boolean ldr = isLDRRequired(cfg);
     int pscTop = 8 * packetLen - 4 * cfg.sf + 28 + 16 - 20 * (cfg.explicitHeader ? 1 : 0);
@@ -214,10 +214,30 @@ public class LoRaCfg {
    * @return Send time for preamble in ms
    */
   public static int calculatePreambleTime(LoRaCfg cfg) {
-    double symbolTime = 1000.0 * Math.pow(2, cfg.sf) / cfg.bw; // ms
-    return (int) Math.ceil((cfg.preambleSymbols + 4.25) * symbolTime);
+    return (int) Math.ceil((cfg.preambleSymbols + 4.25) * getSymbolTime(cfg));
   }
 
+  /**
+   * Sync requires 5 preamble symbols before sync and margin. Determine how long this is in ms.
+   * https://www.semtech.com/uploads/documents/an1200.23.pdf
+   * 
+   * @param cfg LoRa configuration for determining timing
+   * @return Preamble time in ms
+   */
+  public static int requiredPreambleTime(LoRaCfg cfg) {
+    return (int) Math.ceil((5 + 4.25) * getSymbolTime(cfg));
+  }
+
+  /**
+   * The symbol airtime for a given LoRa configuration.
+   * 
+   * @param cfg LoRa configuration
+   * @return Send time for symbol in ms
+   */
+  public static double getSymbolTime(LoRaCfg cfg) {
+    return 1000.0 * Math.pow(2, cfg.sf) / cfg.bw; // ms
+  }
+  
   /**
    * Check if low data rate is required for this instance.<br>
    * See {@link #sLDRRequired(LoRaCfg cfg)}.
@@ -242,7 +262,7 @@ public class LoRaCfg {
     return symbol_time > 16.0;
   }
 
-  
+
   /**
    * @return Profile configured for LoRaWAN D0
    */
@@ -251,7 +271,7 @@ public class LoRaCfg {
     cfg.setSF(12);
     return cfg;
   }
-  
+
   /**
    * @return Profile configured for LoRaWAN D1
    */
@@ -260,7 +280,7 @@ public class LoRaCfg {
     cfg.setSF(11);
     return cfg;
   }
-  
+
   /**
    * @return Profile configured for LoRaWAN D2
    */
@@ -269,7 +289,7 @@ public class LoRaCfg {
     cfg.setSF(10);
     return cfg;
   }
-  
+
   /**
    * @return Profile configured for LoRaWAN D3
    */
@@ -278,7 +298,7 @@ public class LoRaCfg {
     cfg.setSF(9);
     return cfg;
   }
-  
+
   /**
    * @return Profile configured for LoRaWAN D4
    */
@@ -287,7 +307,7 @@ public class LoRaCfg {
     cfg.setSF(8);
     return cfg;
   }
-  
+
   /**
    * @return Profile configured for LoRaWAN D5
    */
@@ -296,7 +316,7 @@ public class LoRaCfg {
     cfg.setSF(7);
     return cfg;
   }
-  
+
   /**
    * @return Profile configured for LoRaWAN D6
    */
@@ -306,7 +326,7 @@ public class LoRaCfg {
     cfg.setBW(250000);
     return cfg;
   }
-  
+
   /**
    * Default parameters, by default uses G3 ETSI band.
    * 
@@ -315,7 +335,7 @@ public class LoRaCfg {
   public static LoRaCfg getDefault() {
     LoRaCfg cfg = new LoRaCfg();
     cfg.setFreq(BAND_G3_MID_MHZ);
-    cfg.setPreambleSymbols(5);
+    cfg.setPreambleSymbols(8);
     cfg.setSF(MAX_SF);
     cfg.setTxPow(14);
     cfg.setBW(125000);
@@ -324,5 +344,5 @@ public class LoRaCfg {
     cfg.setCR(CR_4_5);
     return cfg;
   }
-  
+
 }
