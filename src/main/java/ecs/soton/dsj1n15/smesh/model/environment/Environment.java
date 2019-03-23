@@ -2,6 +2,7 @@ package ecs.soton.dsj1n15.smesh.model.environment;
 
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.Random;
 import java.util.Set;
 import ecs.soton.dsj1n15.smesh.model.Radio;
 import ecs.soton.dsj1n15.smesh.model.Transmission;
@@ -20,7 +21,6 @@ public class Environment {
 
   /** The current time in the environment */
   private long time;
-
 
   /**
    * @return Reference to object
@@ -135,7 +135,6 @@ public class Environment {
     // Add propagation effects of environmental objects
     for (EnvironmentObject object : objects) {
       loss += object.getLOSPathLoss(tx, rx);
-      loss += object.getProximityPathLoss(los);
     }
     return loss;
   }
