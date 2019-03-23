@@ -17,7 +17,13 @@ public class Forest extends EnvironmentObject {
 
   private Polygon2D shape;
   private double density;
-  
+
+  /**
+   * Create a forest.
+   * 
+   * @param shape The shape of the forest
+   * @param density The density of the forest (empirical multiplier for LOS path loss)
+   */
   public Forest(Polygon2D shape, double density) {
     this.shape = shape;
     this.density = density;
@@ -29,7 +35,7 @@ public class Forest extends EnvironmentObject {
   public Shape getAwtShape() {
     return shape.boundary().asAwtShape();
   }
-  
+
   @Override
   public double getPassThroughDistance(Line2D line) {
     return getPassThroughDistance(shape, line);
@@ -50,9 +56,9 @@ public class Forest extends EnvironmentObject {
     if (tx.getFrequency() != rx.getFrequency()) {
       throw new IllegalArgumentException("Communicating radios are not on the same frequency");
     }
-    
+
     double loss = 0;
-    // Use the ITU-R model with an empirical multiplier 
+    // Use the ITU-R model with an empirical multiplier
     PropagationModel model = new ITURPropagationModel(tx.getFrequency());
     // Calculate the line of sight between transmitter and receive
     Line2D los = new Line2D(tx.getXY(), rx.getXY());
@@ -78,26 +84,6 @@ public class Forest extends EnvironmentObject {
     }
 
     return loss * density;
-  }
-  
-  public List<Tree> generateTrees() {
-    List<Tree> trees = new ArrayList<>();
-    Random r = new Random();
-    Box2D box = shape.boundingBox();
-
-    double y = box.getMinY() + 0.1 * box.getWidth();
-    while (y < (box.getMaxY() - 0.1 * box.getWidth())) {
-      double x = box.getMinY() + 0.1 * box.getHeight();
-      while (x < box.getMaxX() - 0.1 * box.getWidth()) {
-        x += 3 * density + (r.nextDouble() * 10 * density);
-        if (shape.contains(x, y)) {
-          trees.add(new Tree(new Point2D(x, y)));
-        }
-      }
-      y += 3 * density + (r.nextDouble() * 10 * density);
-    }
-    
-    return trees;
   }
 
 }
