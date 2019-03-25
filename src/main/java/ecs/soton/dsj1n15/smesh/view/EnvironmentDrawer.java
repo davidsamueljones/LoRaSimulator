@@ -4,6 +4,7 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -17,12 +18,19 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.imageio.ImageIO;
-import ecs.soton.dsj1n15.smesh.model.Radio;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import ecs.soton.dsj1n15.smesh.model.environment.EnvironmentObject;
+import ecs.soton.dsj1n15.smesh.model.lora.LoRaRadio;
+import ecs.soton.dsj1n15.smesh.radio.PartialReceive;
+import ecs.soton.dsj1n15.smesh.radio.Radio;
+import ecs.soton.dsj1n15.smesh.radio.Transmission;
 import math.geom2d.Point2D;
 import math.geom2d.conic.Circle2D;
 import math.geom2d.line.Line2D;
@@ -45,35 +53,15 @@ public class EnvironmentDrawer {
   /** How much each square represents (unitless but could be meters/kms) */
   private int gridUnit = 100;
 
+  private boolean showTransmissions = true;
+  private boolean showRoutes = false;
+  private boolean showRSSIs = true;
+  
   private final Map<Radio, Circle2D> nodeShapes = new LinkedHashMap<>();
 
   private Radio selectedNode = null;
 
   private Point2D curPos = null;
-
-  public Point2D getCurPos() {
-    return curPos;
-  }
-
-  public void setCurPos(Point2D curPos) {
-    this.curPos = curPos;
-  }
-
-  public void setSelectedNode(Radio selectedNode) {
-    this.selectedNode = selectedNode;
-  }
-
-  public Radio getSelectedNode() {
-    return selectedNode;
-  }
-
-  public Point2D getOffset() {
-    return offset;
-  }
-
-  public void setOffset(Point2D offset) {
-    this.offset = offset;
-  }
 
   /**
    * Instantiates a new environment drawer with an environment.
@@ -84,6 +72,30 @@ public class EnvironmentDrawer {
     this.environment = environment;
   }
 
+  public boolean isShowTransmissions() {
+    return showTransmissions;
+  }
+
+  public void setShowTransmissions(boolean showTransmissions) {
+    this.showTransmissions = showTransmissions;
+  }
+
+  public boolean isShowRoutes() {
+    return showRoutes;
+  }
+
+  public void setShowRoutes(boolean showRoutes) {
+    this.showRoutes = showRoutes;
+  }
+
+  public boolean isShowRSSIs() {
+    return showRSSIs;
+  }
+
+  public void setShowRSSIs(boolean showRSSIs) {
+    this.showRSSIs = showRSSIs;
+  }
+  
   /**
    * Creates an image of a given size using the given settings and lines.
    *
@@ -93,7 +105,7 @@ public class EnvironmentDrawer {
   public BufferedImage getEnvironmentImage(Dimension size) {
     // Create a new image of given size
     BufferedImage image = new BufferedImage(size.width, size.height, BufferedImage.TYPE_3BYTE_BGR);
-    // Use BufferedImage's size and graphics object to draw the scaled tile puzzle
+    // Use BufferedImage's size and graphics object to draw the scaled environment
     drawEnvironment(image);
     return image;
   }
@@ -107,7 +119,6 @@ public class EnvironmentDrawer {
     drawEnvironment((Graphics2D) image.getGraphics(),
         new Dimension(image.getWidth(), image.getHeight()));
   }
-
 
   /**
    * Draws the current environment onto a given graphics object - scaled to the given dimensions.
@@ -136,27 +147,17 @@ public class EnvironmentDrawer {
     g.fillRect(0, 0, viewSpace.width, viewSpace.height);
     // Draw the grid background
     drawGrid(g, viewSpace);
-    
-    // 
+
+    // Draw the environment if it exists
     if (environment != null) {
       drawEnvironment(g, viewSpace);
-
-      // Draw the routes
-      final float dash[] = {5.0f};
-      g.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10, dash, 0));
-      List<Radio> nodes = new ArrayList<>(environment.getNodes());
-      for (int s = 0; s < nodes.size(); s++) {
-        for (int t = s + 1; t < nodes.size(); t++) {
-          drawRoute(g, nodes.get(s), nodes.get(t));
-        }
-      }
-      // Draw the nodes
+      drawRoutes(g);
       drawNodes(g, viewSpace);
-    } 
-    
+    }
+
     // Draw the info box
     drawInfo(g, viewSpace);
-    
+
     // Draw a border
     g.setColor(Color.BLACK);
     g.setStroke(new BasicStroke(4));
@@ -209,8 +210,17 @@ public class EnvironmentDrawer {
 
     g.setColor(Color.BLACK);
     g.setFont(new Font("Monospaced", Font.BOLD, 12));
-    g.drawString(String.format("X: %s", curPos == null ? "N/A" : curPos.x()), 10, 20);
-    g.drawString(String.format("Y: %s", curPos == null ? "N/A" : curPos.y()), 10, 40);
+    if (curPos == null) {
+      g.drawString("X: N/A", 10, 20);
+      g.drawString("Y: N/A", 10, 40);
+    } else {
+      g.drawString(String.format("X: %.2f", curPos.x()), 10, 20);
+      g.drawString(String.format("Y: %.2f", curPos.y()), 10, 40);
+    }
+
+    // g.drawString(String.format("Time: %s", environment == null ? "N/A" : environment.getTime()),
+    // 100, 20);
+
 
     g.setTransform(tempAT);
   }
@@ -244,15 +254,28 @@ public class EnvironmentDrawer {
         Circle2D s = new Circle2D(p.x, p.y, radius);
         g.setColor(Color.RED);
         g.fill(s.asAwtShape());
+        g.setStroke(new BasicStroke(2));
         if (node.equals(selectedNode)) {
-          g.setColor(Color.GREEN);
+          g.setColor(new Color(0, 230, 0));
         } else {
           g.setColor(Color.BLACK);
         }
         g.draw(s.asAwtShape());
-        g.setColor(Color.BLACK);
-        if (node.getCurrentTransmission() == null) {
-          g.drawString(String.format("%d", (int) environment.getRSSI(node)), p.x, p.y);
+        if (showRSSIs && node.getCurrentTransmission() == null) {
+          String strRssi = String.format("%d", (int) environment.getRSSI(node));
+          FontMetrics fm = g.getFontMetrics();
+          int strX = p.x - fm.stringWidth(strRssi) / 2;
+          int strY = p.y - fm.getHeight();
+          g.setColor(Color.WHITE);
+          g.fillRoundRect(strX - 2, strY - fm.getHeight() + 3, fm.stringWidth(strRssi) + 4,
+              fm.getHeight(), 5, 5);
+          g.setColor(Color.LIGHT_GRAY);
+          g.setStroke(new BasicStroke(1));
+          g.drawRoundRect(strX - 2, strY - fm.getHeight() + 3, fm.stringWidth(strRssi) + 4,
+              fm.getHeight(), 5, 5);
+          g.setColor(Color.BLACK);
+          g.drawString(strRssi, strX, strY);
+
         }
         nodeShapes.put(node, s);
       }
@@ -263,30 +286,12 @@ public class EnvironmentDrawer {
     return nodeShapes;
   }
 
-  private void drawRoute(Graphics2D g, Radio a, Radio b) {    
+  private void drawRoute(Graphics2D g, Radio a, Radio b, Color baseColor) {
     Point pa = getViewPosition(a.getXY());
     Point pb = getViewPosition(b.getXY());
     Point mid = new Point(pa.x + (pb.x - pa.x) / 2, pa.y + (pb.y - pa.y) / 2);
-
-    // Line2D line = new Line2D(pa.x, pa.y, pb.x, pb.y);
-    // double receivedPower = environment.getReceivedPower(a, b);
-    //
-    // int opacity = 0;
-    // if (receivedPower > Radio.MAX_SENSITIVITY) {
-    // opacity = 255;
-    // } else {
-    // int leeway = 5;
-    // double strength = leeway + receivedPower - Radio.MAX_SENSITIVITY;
-    // opacity = (int) Math.max(0, Math.min(255, strength * 255 / leeway));
-    // }
-    //
-    // g.setColor(new Color(0, 0, 0, opacity));
-    // g.draw(line.asAwtShape());
-    // g.drawString(String.format("%d", (int) receivedPower), mid.x, mid.y);
-
-
-
     Line2D line = new Line2D(pa.x, pa.y, pb.x, pb.y);
+
     double snr = environment.getReceiveSNR(a, b);
     snr = Math.min(environment.getReceiveSNR(b, a), snr);
     int opacity = 0;
@@ -297,30 +302,174 @@ public class EnvironmentDrawer {
       double strength = leeway + snr - b.getRequiredSNR();
       opacity = (int) Math.max(0, Math.min(255, strength * 255 / leeway));
     }
-    if (a.canCommunicate(b)) {
-      g.setColor(new Color(0, 0, 0, opacity));
-      g.draw(line.asAwtShape());
-      g.drawString(String.format("%d", (int) snr), mid.x, mid.y);
-    } else if (a.canInterfere(b)) {
-      g.setColor(new Color(255, 0, 0, opacity));
-      g.draw(line.asAwtShape());
-    } else {
-      return;
-    }   
+    Color color = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), opacity);
+
+
+    g.setColor(color);
+    g.draw(line.asAwtShape());
+
+    String strSNR = String.format("%d", (int) snr);
+    FontMetrics fm = g.getFontMetrics();
+    int strX = mid.x - fm.stringWidth(strSNR) / 2;
+    int strY = mid.y;
+    g.setColor(new Color(255, 255, 255, opacity));
+    g.fillRoundRect(strX - 2, strY - fm.getHeight() + 3, fm.stringWidth(strSNR) + 4, fm.getHeight(),
+        5, 5);
+    g.setColor(new Color(192, 192, 192, opacity));
+    g.setStroke(new BasicStroke(1));
+    g.drawRoundRect(strX - 2, strY - fm.getHeight() + 3, fm.stringWidth(strSNR) + 4, fm.getHeight(),
+        5, 5);
+    g.setColor(color);
+    g.drawString(String.format("%d", (int) snr), strX, strY);
+
   }
 
+  private static final float[] SOLID_LINE = null;
+  private static final float[] LONG_DASH = {5.0f};
+
+  private void drawRoutes(Graphics2D g) {
+    Set<Pair<Radio, Radio>> routes = new LinkedHashSet<>();
+    // Draw transmissions
+    if (showTransmissions) {
+      for (Radio radio : environment.getNodes()) {
+        PartialReceive receive = radio.getTimeMap().get(environment.getTime());
+        if (receive != null) {
+          Color color = new Color(0, 0, 204);
+          float dash[] = SOLID_LINE;
+          Transmission synced = null;
+          if (radio instanceof LoRaRadio) {
+            synced = ((LoRaRadio) radio).getSyncedSignal();
+          }
+          if (synced != null) {
+            if (synced != receive.transmission) {
+              color = new Color(204, 0, 0);
+            }
+          } else {
+            dash = LONG_DASH;
+          }
+          g.setStroke(
+              new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10, dash, 0));
+          drawRoute(g, receive.transmission.sender, radio, color);
+          routes.add(new ImmutablePair<>(receive.transmission.sender, radio));
+        }
+      }
+    }
+    // Draw routes
+    if (showRoutes) {
+      List<Radio> nodes = new ArrayList<>(environment.getNodes());
+      for (int s = 0; s < nodes.size(); s++) {
+        for (int t = s + 1; t < nodes.size(); t++) {
+          Radio a = nodes.get(s);
+          Radio b = nodes.get(t);
+          if (!(routes.contains(new ImmutablePair<>(a, b))
+              || routes.contains(new ImmutablePair<>(b, a)))) {
+            Color color;
+            g.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10,
+                LONG_DASH, 0));
+            if (a.canCommunicate(b)) {
+              color = Color.BLACK;
+            } else if (a.canInterfere(b)) {
+              color = Color.RED;
+            } else {
+              continue;
+            }
+            drawRoute(g, nodes.get(s), nodes.get(t), color);
+          }
+        }
+      }
+    }
+  }
+
+  public void centreView(Rectangle viewSpace) {
+    if (environment != null && viewSpace.width > 0 && viewSpace.height > 0) {
+      // Find the extremities
+      double minX = Double.MAX_VALUE;
+      double minY = Double.MAX_VALUE;
+      double maxX = Double.MIN_VALUE;
+      double maxY = Double.MIN_VALUE;
+      for (Radio radio : environment.getNodes()) {
+        if (radio.getX() < minX) {
+          minX = radio.getX();
+        }
+        if (radio.getY() < minY) {
+          minY = radio.getY();
+        }
+        if (radio.getX() > maxX) {
+          maxX = radio.getX();
+        }
+        if (radio.getY() > maxY) {
+          maxY = radio.getY();
+        }
+      }
+
+      double width = (maxX - minX);
+      double height = (maxY - minY);
+      double minWidthScale = viewSpace.width / width;
+      double minHeightScale = viewSpace.height / height;
+      double minScale = Math.min(minWidthScale, minHeightScale);
+      // Allow some boundaries
+      minScale *= 0.8;
+      int newSize = (int) Math.min(Math.max(MIN_GRID_SIZE, minScale * gridUnit), MAX_GRID_SIZE);
+      // Re-centre and scale
+      Point2D targetCentre =
+          new Point2D(offset.x() + minX + width / 2, offset.y() + minY + height / 2);
+      setGridSize(newSize);
+      Point2D newCentre =
+          getCoordinate(new Point(viewSpace.width / 2, viewSpace.height / 2));
+      Point2D newOffset =
+          new Point2D(targetCentre.x() - newCentre.x(), targetCentre.y() - newCentre.y());
+      setOffset(newOffset);
+    }
+  }
+
+  public Point2D getCurPos() {
+    return curPos;
+  }
+
+  public void setCurPos(Point2D curPos) {
+    this.curPos = curPos;
+  }
+
+  public void setSelectedNode(Radio selectedNode) {
+    this.selectedNode = selectedNode;
+  }
+
+  public Radio getSelectedNode() {
+    return selectedNode;
+  }
+
+  public Point2D getOffset() {
+    return offset;
+  }
+
+  public void setOffset(Point2D offset) {
+    this.offset = offset;
+  }
+
+  /**
+   * @return The size each grid square is in pixels
+   */
   public int getGridSize() {
     return gridSize;
   }
 
+  /**
+   * @param gridSize The size each grid square should be in pixels
+   */
   public void setGridSize(int gridSize) {
     this.gridSize = gridSize;
   }
 
+  /**
+   * @return How much each grid square represents
+   */
   public int getGridUnit() {
     return gridUnit;
   }
 
+  /**
+   * @param gridUnit How much each grid square should represent
+   */
   public void setGridUnit(int gridUnit) {
     this.gridUnit = gridUnit;
   }
