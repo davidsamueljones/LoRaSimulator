@@ -2,13 +2,12 @@ package ecs.soton.dsj1n15.smesh.model.environment;
 
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.Random;
 import java.util.Set;
-import ecs.soton.dsj1n15.smesh.model.Radio;
-import ecs.soton.dsj1n15.smesh.model.Transmission;
-import ecs.soton.dsj1n15.smesh.model.Utilities;
+import ecs.soton.dsj1n15.smesh.lib.Utilities;
 import ecs.soton.dsj1n15.smesh.model.propogation.PlainEarthPropagationModel;
 import ecs.soton.dsj1n15.smesh.model.propogation.PropagationModel;
+import ecs.soton.dsj1n15.smesh.radio.Radio;
+import ecs.soton.dsj1n15.smesh.radio.Transmission;
 import math.geom2d.line.Line2D;
 
 public class Environment {
@@ -165,6 +164,21 @@ public class Environment {
     }
   }
 
+  /**
+   * Get the node with the corresponding ID. 
+   * 
+   * @param id ID of the node
+   * @return Corresponding node
+   */
+  public Radio getNode(Integer id) {
+    for (Radio node : nodes) {
+      if (node.getID() == id) {
+        return node;
+      }
+    }
+    return null;
+  }
+  
   /**
    * Remove node from the environment, unsetting radios environment object automatically.
    * 
