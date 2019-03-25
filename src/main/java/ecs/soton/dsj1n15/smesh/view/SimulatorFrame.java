@@ -1,49 +1,42 @@
 package ecs.soton.dsj1n15.smesh.view;
 
-import java.awt.Color;
-import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.Rectangle;
-import java.util.Collection;
 import javax.swing.JFrame;
 import javax.swing.border.BevelBorder;
-import ecs.soton.dsj1n15.smesh.model.Mesh;
-import ecs.soton.dsj1n15.smesh.model.environment.Environment;
+import ecs.soton.dsj1n15.smesh.controller.EnvironmentRunner;
+import ecs.soton.dsj1n15.smesh.controller.EnvironmentRunnerListener;
 import ecs.soton.dsj1n15.smesh.model.environment.Forest;
-import ecs.soton.dsj1n15.smesh.model.lora.LoRaRadio;
-import math.geom2d.AffineTransform2D;
-import math.geom2d.Box2D;
-import math.geom2d.GeometricObject2D;
-import math.geom2d.Point2D;
-import math.geom2d.circulinear.CirculinearContourArray2D;
-import math.geom2d.circulinear.CirculinearDomain2D;
-import math.geom2d.line.LineSegment2D;
-import math.geom2d.polygon.LinearRing2D;
-import math.geom2d.polygon.Polygon2D;
+import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
+import ecs.soton.dsj1n15.smesh.model.presets.NineNodeLine;
+import ecs.soton.dsj1n15.smesh.model.presets.TwoNodeNO;
 import math.geom2d.polygon.Rectangle2D;
-import math.geom2d.transform.CircleInversion2D;
 
 public class SimulatorFrame extends JFrame {
   private static final long serialVersionUID = 8915866815288848109L;
 
-  private Environment environment = null;
-  
+  private final EnvironmentRunner runner;
+
   private SimulatorViewPanel pnlView;
   private SimulatorControlPanel pnlControls;
-  
+
   /**
    * Create the frame.
    */
   public SimulatorFrame() {
+    // Create the main running thread
+    runner = new EnvironmentRunner();
+
+    // Create simulator
     this.setSize(800, 500);
+    setDefaultCloseOperation(EXIT_ON_CLOSE);
     initialiseGUI();
     initialiseEventHandlers();
+
     initialiseModel();
-    setDefaultCloseOperation(EXIT_ON_CLOSE);
-    
-    pnlView.setEnvironment(environment);
+    loadPresets();
+    pnlControls.loadEnvironment();
   }
 
   /**
@@ -57,18 +50,17 @@ public class SimulatorFrame extends JFrame {
     gridBagLayout.rowWeights = new double[] {1.0};
     getContentPane().setLayout(gridBagLayout);
 
-    /* LHS TilePuzzlePanel displaying TilePuzzle */
+    /* LHS Simulator View displaying Environment */
     pnlView = new SimulatorViewPanel();
-    GridBagConstraints gbc_pnlTilePuzzle = new GridBagConstraints();
-    gbc_pnlTilePuzzle.insets = new Insets(5, 5, 5, 2);
-    gbc_pnlTilePuzzle.fill = GridBagConstraints.BOTH;
-    gbc_pnlTilePuzzle.gridx = 0;
-    gbc_pnlTilePuzzle.gridy = 0;
-    getContentPane().add(pnlView, gbc_pnlTilePuzzle);
-    
-    /* RHS Control panel for TilePuzzle interaction */
-    pnlControls = new SimulatorControlPanel();
-    pnlControls.setBackground(Color.GRAY);
+    GridBagConstraints gnc_pnlView = new GridBagConstraints();
+    gnc_pnlView.insets = new Insets(5, 5, 5, 2);
+    gnc_pnlView.fill = GridBagConstraints.BOTH;
+    gnc_pnlView.gridx = 0;
+    gnc_pnlView.gridy = 0;
+    getContentPane().add(pnlView, gnc_pnlView);
+
+    /* RHS Control panel for Simulator interaction */
+    pnlControls = new SimulatorControlPanel(runner, pnlView);
     pnlControls.setBorder(new BevelBorder(BevelBorder.LOWERED, null, null, null, null));
     GridBagConstraints gbc_pnlControls = new GridBagConstraints();
     gbc_pnlControls.insets = new Insets(5, 2, 5, 5);
@@ -82,55 +74,44 @@ public class SimulatorFrame extends JFrame {
    * Attach event handlers to GUI objects.
    */
   private void initialiseEventHandlers() {
-
+    runner.addListener(new EnvironmentRunnerListener() {
+      @Override
+      public void update() {
+        pnlView.repaint();
+        try {
+          Thread.sleep(1);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+      }
+    });
   }
-    
+
+  /**
+   * Load all presets into selection box.
+   */
+  private void loadPresets() {
+    pnlControls.addPreset("9N NO Line", new NineNodeLine());
+    pnlControls.addPreset("2N NO 100m", new TwoNodeNO(100, LoRaCfg.getDataRate0()));
+  }
+
+
+
   /**
    * Initialise model.
    */
   private void initialiseModel() {
-    environment = new Environment();
+    //environment = new Environment();
     Forest forest1 = new Forest(new Rectangle2D(0, 0, 500, 500), 1);
-    environment.getEnvironmentObjects().add(forest1);
-    //environment.getEnvironmentObjects().addAll(forest1.generateTrees());
+    // environment.getEnvironmentObjects().add(forest1);
     Forest forest2 = new Forest(new Rectangle2D(550, 0, 200, 500), 0.5);
-    environment.getEnvironmentObjects().add(forest2);
+    // environment.getEnvironmentObjects().add(forest2);
     Forest forest3 = new Forest(new Rectangle2D(800, 0, 200, 500), 0.25);
-    environment.getEnvironmentObjects().add(forest3);
+    // environment.getEnvironmentObjects().add(forest3);
     Forest forest4 = new Forest(new Rectangle2D(0, 600, 1000, 200), 0.1);
-    environment.getEnvironmentObjects().add(forest4);
-    
-    //mesh = new Mesh(1);
-    double z = 0.25;
-    LoRaRadio node1 = new LoRaRadio(1);
-    node1.setX(0);
-    node1.setY(50);
-    node1.setZ(z);
-    environment.addNode(node1);
-    
-    LoRaRadio node2 = new LoRaRadio(2);
-    node2.setX(50);
-    node2.setY(0);
-    node2.setZ(z);
-    environment.addNode(node2);
-    
-    LoRaRadio node3 = new LoRaRadio(3);
-    node3.setX(200);
-    node3.setY(0);
-    node3.setZ(z);
-    environment.addNode(node3);
-    
-    LoRaRadio node4 = new LoRaRadio(4);
-    node4.setX(310);
-    node4.setY(200);
-    node4.setZ(z);
-    environment.addNode(node4);
-    
-    LoRaRadio node5 = new LoRaRadio(5);
-    node5.setX(500);
-    node5.setY(500);
-    node5.setZ(z);
-    environment.addNode(node5);
+    // environment.getEnvironmentObjects().add(forest4);
   }
-  
+
+
+
 }

@@ -14,8 +14,8 @@ import java.awt.event.MouseWheelListener;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.swing.JPanel;
-import ecs.soton.dsj1n15.smesh.model.Radio;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
+import ecs.soton.dsj1n15.smesh.radio.Radio;
 import math.geom2d.Point2D;
 import math.geom2d.conic.Circle2D;
 
@@ -116,7 +116,8 @@ public class SimulatorViewPanel extends JPanel
   private void zoomView(Point point, int rotation) {
     int curSize = environmentDrawer.getGridSize();
     int modSize = curSize + rotation;
-    int newSize = Math.max(EnvironmentDrawer.MIN_GRID_SIZE, Math.min(modSize, EnvironmentDrawer.MAX_GRID_SIZE));
+    int newSize = Math.max(EnvironmentDrawer.MIN_GRID_SIZE,
+        Math.min(modSize, EnvironmentDrawer.MAX_GRID_SIZE));
     if (curSize != newSize) {
       Point lastPosition = getPointOnView(point);
       Point2D lastCoordinate = environmentDrawer.getCoordinate(lastPosition);
@@ -189,16 +190,10 @@ public class SimulatorViewPanel extends JPanel
   }
 
   @Override
-  public void mouseEntered(MouseEvent e) {
-    // TODO Auto-generated method stub
-
-  }
+  public void mouseEntered(MouseEvent e) {}
 
   @Override
-  public void mouseExited(MouseEvent e) {
-    // TODO Auto-generated method stub
-
-  }
+  public void mouseExited(MouseEvent e) {}
 
 
 }
