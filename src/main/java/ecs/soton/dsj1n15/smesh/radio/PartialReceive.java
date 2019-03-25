@@ -1,6 +1,6 @@
-package ecs.soton.dsj1n15.smesh.model;
+package ecs.soton.dsj1n15.smesh.radio;
 
-public class ReceiveData {
+public class PartialReceive {
   public final Transmission transmission;
   
   public final long time;
@@ -9,7 +9,7 @@ public class ReceiveData {
   
   public final double rssi;
   
-  public ReceiveData(Transmission transmission, long time, double snr, double rssi) {
+  public PartialReceive(Transmission transmission, long time, double snr, double rssi) {
     this.transmission = transmission;
     this.time = time;
     this.snr = snr;

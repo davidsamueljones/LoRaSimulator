@@ -1,7 +1,7 @@
-package ecs.soton.dsj1n15.smesh.model;
+package ecs.soton.dsj1n15.smesh.radio;
 
 import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
@@ -14,9 +14,6 @@ import math.geom2d.Point2D;
  * @author David Jones (dsj1n15)
  */
 public abstract class Radio {
-  /** A mapping of all transmissions seen to observation data */
-  protected Map<Long, ReceiveData> timeMap = new LinkedHashMap<>();
-  
   /** A unique ID */
   protected final int id;
 
@@ -26,6 +23,14 @@ public abstract class Radio {
   protected double y;
   protected double z;
 
+  /** A mapping of all transmissions seen to observation data */
+  protected Map<Long, PartialReceive> timeMap = new LinkedHashMap<>();
+  
+  /** Set of receive listeners that get triggered after every receive attempt */
+  protected Set<ReceiveListener> receiveListeners = new LinkedHashSet<>();
+  
+  protected ReceiveResult lastReceive = null;
+  
   /**
    * Instantiate a Radio.
    * 
@@ -54,7 +59,6 @@ public abstract class Radio {
    */
   public void setEnvironment(Environment environment) {
     this.environment = environment;
-    //this.lastTime = Long.MIN_VALUE;
   }
 
   /**
@@ -183,7 +187,8 @@ public abstract class Radio {
   public static double getNoiseFloor(Radio radio) {
     double t = 290; // Room temperature in Kelvin
     double k = 1.38 * Math.pow(10, -23); // Boltzmann’s Constant
-    return 10 * Math.log10(k * t * radio.getBandwidth() * 1000) + radio.getNoiseFigure();
+    double floor = 10 * Math.log10(k * t * radio.getBandwidth() * 1000) + radio.getNoiseFigure();
+    return floor;
   }
 
   /**
@@ -197,15 +202,53 @@ public abstract class Radio {
   public abstract Transmission send(Packet packet);
 
   /**
-   * Record transmission information viewable by the current radio.
+   * Record transmission information viewable by the current radio. Attempt to sync and decode if
+   * required transmission data available.
    */
   public abstract void listen();
 
   /**
-   * Process any captured transmission information to receive any possible packets.
+   * Called after any time change. Do {@link #listen()} and {@link #send(Packet packet)} calls
+   * before this so that this can be used as a cleanup function.
    */
-  public abstract void decode();
+  public abstract void tick();
+
+  /**
+   * @return The current time map
+   */
+  public Map<Long, PartialReceive> getTimeMap() {
+    return timeMap;
+  }
   
+  /**
+   * Add a listener that will get triggered on every unsuccessful or successful receive. If the
+   * radio would not know of an unsuccessful receive for any reason, e.g. the preamble was never
+   * detected then the listener will not get called.
+   * 
+   * @param receiveListener Receive listener to add
+   */
+  public void addReceiveListener(ReceiveListener receiveListener) {
+    receiveListeners.add(receiveListener);
+  }
+
+  /**
+   * Remove a receive listener.
+   * 
+   * @param receiveListener Receive listener to remove
+   */
+  public void removeReceiveListener(ReceiveListener receiveListener) {
+    receiveListeners.remove(receiveListener);
+  }
+  
+  /**
+   * Alert receive listeners with last receive.
+   */
+  protected void alertReceiveListeners() {
+    for (ReceiveListener listener : receiveListeners) {
+      listener.receive(lastReceive);
+    }
+  }
+
   /**
    * Use the recorded transmission information to check if there are any ongoing transmissions that
    * would affect a transmission from this radio.
