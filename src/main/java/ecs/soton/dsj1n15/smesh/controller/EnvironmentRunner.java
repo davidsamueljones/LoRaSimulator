@@ -42,17 +42,16 @@ public class EnvironmentRunner {
           }
           if (environment != null) {
             while (running || unitsToRun > 0) {
+              // Run any initialisation events one time
+              if (environment.getTime() == 0) {
+                runEvents();
+              }
               environment.addTime(timeUnit);
               if (unitsToRun > 0) {
                 unitsToRun--;
               }
               // Do simulation behaviour
-              List<Event> events = eventMap.get(environment.getTime());
-              if (events != null) {
-                for (Event event : events) {
-                  event.execute();
-                }
-              }
+              runEvents();
               // Handle radio behaviour
               for (Radio radio : environment.getNodes()) {
                 if (radio.getCurrentTransmission() == null) {
@@ -89,19 +88,31 @@ public class EnvironmentRunner {
       throw new IllegalStateException("Cannot change environment whilst running");
     }
   }
-  
-/**
- * Add new events, appending existing events.
- * 
- * @param eventMap Map of new events
- */
+
+  /**
+   * Run all events
+   */
+  private void runEvents() {
+    List<Event> events = eventMap.get(environment.getTime());
+    if (events != null) {
+      for (Event event : events) {
+        event.execute();
+      }
+    }
+  }
+
+  /**
+   * Add new events, appending existing events.
+   * 
+   * @param eventMap Map of new events
+   */
   public void addEvents(Map<Long, List<Event>> eventMap) {
     for (Entry<Long, List<Event>> entry : eventMap.entrySet()) {
       if (this.eventMap.containsKey(entry.getKey())) {
         this.eventMap.get(entry.getKey()).addAll(entry.getValue());
       } else {
         this.eventMap.put(entry.getKey(), entry.getValue());
-      }     
+      }
     }
   }
 

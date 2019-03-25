@@ -1,6 +1,7 @@
 package ecs.soton.dsj1n15.smesh.model.presets;
 
 import com.rits.cloning.Cloner;
+import ecs.soton.dsj1n15.smesh.controller.TransmissionEvent;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaRadio;
@@ -40,7 +41,7 @@ public class TwoNodeNO extends Preset {
 
     // Create some events
     Packet packet = new Packet(120);
-    node1.send(packet);
+    addEvent(0, new TransmissionEvent(node1, packet));
   }
 
 
