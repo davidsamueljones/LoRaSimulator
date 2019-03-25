@@ -344,5 +344,13 @@ public class LoRaCfg {
     cfg.setCR(CR_4_5);
     return cfg;
   }
+  
+  /**
+   * @return Get the LoRa chirp rate
+   */
+  public double getChirpRate() {
+    double bw = this.bw / 1e6;
+    return (bw * bw) / Math.pow(2, sf);
+  }
 
 }
