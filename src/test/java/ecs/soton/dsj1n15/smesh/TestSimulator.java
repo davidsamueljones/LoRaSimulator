@@ -25,6 +25,7 @@ public class TestSimulator {
     }
     // Create new simulator on EDT
     EventQueue.invokeLater(new Runnable() {
+      @Override
       public void run() {
         try {
           SimulatorFrame frame = new SimulatorFrame();
