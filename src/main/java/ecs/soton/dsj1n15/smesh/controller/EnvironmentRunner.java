@@ -1,11 +1,12 @@
 package ecs.soton.dsj1n15.smesh.controller;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import ecs.soton.dsj1n15.smesh.model.Radio;
+import java.util.Map;
+import java.util.Map.Entry;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
-import ecs.soton.dsj1n15.smesh.view.SimulatorControlPanel;
-import ecs.soton.dsj1n15.smesh.view.SimulatorViewPanel;
+import ecs.soton.dsj1n15.smesh.radio.Radio;
 
 public class EnvironmentRunner {
   /** The currently loaded environment */
@@ -23,6 +24,8 @@ public class EnvironmentRunner {
   /** List of listeners */
   private List<EnvironmentRunnerListener> listeners = new ArrayList<>();
 
+  /** List of events to execute */
+  private Map<Long, List<Event>> eventMap = new LinkedHashMap<>();
 
   /**
    * Start a new execution thread running the environment.
@@ -39,14 +42,23 @@ public class EnvironmentRunner {
           }
           if (environment != null) {
             while (running || unitsToRun > 0) {
+              environment.addTime(timeUnit);
+              if (unitsToRun > 0) {
+                unitsToRun--;
+              }
+              // Do simulation behaviour
+              List<Event> events = eventMap.get(environment.getTime());
+              if (events != null) {
+                for (Event event : events) {
+                  event.execute();
+                }
+              }
+              // Handle radio behaviour
               for (Radio radio : environment.getNodes()) {
                 if (radio.getCurrentTransmission() == null) {
                   radio.listen();
                 }
-              }
-              environment.addTime(timeUnit);
-              if (!running) {
-                unitsToRun--;
+                radio.tick();
               }
               // Let listeners know an update has occurred
               for (EnvironmentRunnerListener listener : listeners) {
@@ -76,6 +88,28 @@ public class EnvironmentRunner {
     } else {
       throw new IllegalStateException("Cannot change environment whilst running");
     }
+  }
+  
+/**
+ * Add new events, appending existing events.
+ * 
+ * @param eventMap Map of new events
+ */
+  public void addEvents(Map<Long, List<Event>> eventMap) {
+    for (Entry<Long, List<Event>> entry : eventMap.entrySet()) {
+      if (this.eventMap.containsKey(entry.getKey())) {
+        this.eventMap.get(entry.getKey()).addAll(entry.getValue());
+      } else {
+        this.eventMap.put(entry.getKey(), entry.getValue());
+      }     
+    }
+  }
+
+  /**
+   * Clear existing events
+   */
+  public void clearEvents() {
+    eventMap.clear();
   }
 
   /**
@@ -160,6 +194,5 @@ public class EnvironmentRunner {
   public void removeListener(EnvironmentRunnerListener listener) {
     listeners.remove(listener);
   }
-
 
 }
