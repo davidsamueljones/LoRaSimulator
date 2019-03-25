@@ -4,7 +4,7 @@ import java.awt.Color;
 import java.awt.Shape;
 import java.util.ArrayList;
 import java.util.List;
-import ecs.soton.dsj1n15.smesh.model.Radio;
+import ecs.soton.dsj1n15.smesh.radio.Radio;
 import math.geom2d.Point2D;
 import math.geom2d.conic.Circle2D;
 import math.geom2d.line.Line2D;

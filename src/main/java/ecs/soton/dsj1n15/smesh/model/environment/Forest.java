@@ -2,13 +2,10 @@ package ecs.soton.dsj1n15.smesh.model.environment;
 
 import java.awt.Color;
 import java.awt.Shape;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
-import ecs.soton.dsj1n15.smesh.model.Radio;
 import ecs.soton.dsj1n15.smesh.model.propogation.ITURPropagationModel;
 import ecs.soton.dsj1n15.smesh.model.propogation.PropagationModel;
-import math.geom2d.Box2D;
+import ecs.soton.dsj1n15.smesh.radio.Radio;
 import math.geom2d.Point2D;
 import math.geom2d.line.Line2D;
 import math.geom2d.polygon.Polygon2D;
