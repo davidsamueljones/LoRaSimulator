@@ -1,4 +1,4 @@
-package ecs.soton.dsj1n15.smesh.model.lora;
+package ecs.soton.dsj1n15.smesh.model.dutycycle;
 
 public abstract class DutyCycleManager {
   protected final double dutyCycle;

@@ -1,4 +1,4 @@
-package ecs.soton.dsj1n15.smesh.model.lora;
+package ecs.soton.dsj1n15.smesh.model.dutycycle;
 
 public class SingleTransmissionDutyCycleManager extends DutyCycleManager {
   private long nextTransmitTime = 0;

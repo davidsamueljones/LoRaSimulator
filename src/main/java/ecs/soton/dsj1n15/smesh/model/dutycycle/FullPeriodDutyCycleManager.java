@@ -1,4 +1,4 @@
-package ecs.soton.dsj1n15.smesh.model.lora;
+package ecs.soton.dsj1n15.smesh.model.dutycycle;
 
 import java.util.ArrayList;
 import java.util.Iterator;
