@@ -18,7 +18,7 @@ public abstract class DutyCycleManager {
    * @param time The current time in ms
    * @param airtime The full packet airtime in ms
    */
-  public abstract void transmit(long time, double airtime);
+  public abstract void transmit(long time, int airtime);
 
   /**
    * Determine whether a packet could be transmitted at this time legally.
@@ -27,22 +27,22 @@ public abstract class DutyCycleManager {
    * @param airtime The full packet airtime in ms
    * @return Whether the packet can be transmitted legally
    */
-  public boolean canTransmit(long time, double airtime) {
-    boolean canTransmit = true;
-    canTransmit &= time >= nextAvailableTransmitTime();
-    canTransmit &= getAvailableTransmitTime() > airtime;
-    return canTransmit;
-  }
-
-  /**
-   * @return The time when a transmission is next allowed
-   */
-  public abstract long nextAvailableTransmitTime();
-
-  /**
-   * @return The amount of available transmission time for a single transmission in ms from the point of
-   *         the next available transmission time.
-   */
-  public abstract long getAvailableTransmitTime();
+  public abstract boolean canTransmit(long time, int airtime);
   
+  /**
+   * Determine a time when a packet can be transmitted legally.
+   *
+   * @param time The current time in ms
+   * @param airtime The full packet airtime in ms
+   * @return Time the packet can be sent
+   */
+  public abstract long whenCanTransmit(long time, int airtime);
+
+  /**
+   * @param time The current time in ms
+   * @return The amount of available transmission time for a single transmission in ms from the
+   *         point of the next available transmission time.
+   */
+  public abstract long getAvailableTransmitTime(long time);
+
 }

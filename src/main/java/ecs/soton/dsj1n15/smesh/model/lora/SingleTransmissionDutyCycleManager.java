@@ -24,20 +24,29 @@ public class SingleTransmissionDutyCycleManager extends DutyCycleManager {
   }
 
   @Override
-  public void transmit(long time, double airtime) {
+  public void transmit(long time, int airtime) {
     if (!canTransmit(time, airtime)) {
       throw new IllegalStateException("Cannot transmit within boundaries of duty cycle manager");
     }
-    this.nextTransmitTime = (long) Math.ceil((time + airtime) + airtime / dutyCycle);
+    this.nextTransmitTime = (long) Math.ceil(time + airtime / dutyCycle);
   }
 
   @Override
-  public long nextAvailableTransmitTime() {
-    return this.nextTransmitTime;
+  public boolean canTransmit(long time, int airtime) {
+    return time >= whenCanTransmit(time, airtime);
+  }
+  
+  @Override
+  public long whenCanTransmit(long time, int airtime) {
+    if (getAvailableTransmitTime(time) > airtime) {
+      return this.nextTransmitTime;
+    } else {
+      return 0;
+    }
   }
 
   @Override
-  public long getAvailableTransmitTime() {
+  public long getAvailableTransmitTime(long time) {
     return (long) Math.floor(60 * 60 * 1000 * dutyCycle);
   }
 
