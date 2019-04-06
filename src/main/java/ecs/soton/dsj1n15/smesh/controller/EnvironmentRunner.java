@@ -12,14 +12,14 @@ public class EnvironmentRunner {
   /** The currently loaded environment */
   private Environment environment = null;
 
-  private Thread runner;
+  private final Thread runner;
 
   /** Whether the environment is running */
   private volatile boolean running = false;
   /** The number of units left to run if not running */
   private volatile int unitsToRun = 0;
   /** The amount of time each unit represents */
-  private volatile int timeUnit = 10;
+  private volatile int timeUnit = 5;
 
   /** List of listeners */
   private List<EnvironmentRunnerListener> listeners = new ArrayList<>();
@@ -34,11 +34,11 @@ public class EnvironmentRunner {
     runner = new Thread(new Runnable() {
       @Override
       public void run() {
-        while (true) {
+        while (!Thread.interrupted()) {
           try {
             Thread.sleep(50);
           } catch (InterruptedException e) {
-            e.printStackTrace();
+            Thread.currentThread().interrupt();
           }
           if (environment != null) {
             while (running || unitsToRun > 0) {
@@ -55,7 +55,7 @@ public class EnvironmentRunner {
               // Handle radio behaviour
               for (Radio radio : environment.getNodes()) {
                 if (radio.getCurrentTransmission() == null) {
-                  radio.listen();
+                  radio.recv();
                 }
                 radio.tick();
               }
@@ -71,6 +71,13 @@ public class EnvironmentRunner {
     runner.start();
   }
 
+  /**
+   * @return The execution thread running the environment
+   */
+  public Thread getExecutionThread() {
+    return runner;
+  }
+  
   /**
    * @return The environment that is being run
    */
@@ -187,7 +194,9 @@ public class EnvironmentRunner {
   public List<Integer> getTimeUnitOptions() {
     List<Integer> timeUnits = new ArrayList<>();
     timeUnits.add(1);
+    timeUnits.add(5);
     timeUnits.add(10);
+    timeUnits.add(50);
     timeUnits.add(100);
     return timeUnits;
   }
