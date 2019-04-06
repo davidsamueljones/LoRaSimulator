@@ -3,15 +3,11 @@ package ecs.soton.dsj1n15.smesh.view;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.util.EventListener;
 import javax.swing.JFrame;
 import javax.swing.border.BevelBorder;
 import ecs.soton.dsj1n15.smesh.controller.EnvironmentRunner;
 import ecs.soton.dsj1n15.smesh.controller.EnvironmentRunnerListener;
-import ecs.soton.dsj1n15.smesh.model.environment.Forest;
-import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
-import ecs.soton.dsj1n15.smesh.model.presets.NineNodeLine;
-import ecs.soton.dsj1n15.smesh.model.presets.TwoNodeNO;
-import math.geom2d.polygon.Rectangle2D;
 
 public class SimulatorFrame extends JFrame {
   private static final long serialVersionUID = 8915866815288848109L;
@@ -20,6 +16,7 @@ public class SimulatorFrame extends JFrame {
 
   private SimulatorViewPanel pnlView;
   private SimulatorControlPanel pnlControls;
+  boolean viewUpToDate = false;
 
   /**
    * Create the frame.
@@ -29,13 +26,9 @@ public class SimulatorFrame extends JFrame {
     runner = new EnvironmentRunner();
 
     // Create simulator
-    this.setSize(800, 500);
+    this.setSize(950, 600);
     setDefaultCloseOperation(EXIT_ON_CLOSE);
     initialiseGUI();
-    initialiseEventHandlers();
-
-    initialiseModel();
-    loadPresets();
     pnlControls.loadEnvironment();
   }
 
@@ -44,7 +37,7 @@ public class SimulatorFrame extends JFrame {
    */
   private void initialiseGUI() {
     GridBagLayout gridBagLayout = new GridBagLayout();
-    gridBagLayout.columnWidths = new int[] {0, 300};
+    gridBagLayout.columnWidths = new int[] {0, 0};
     gridBagLayout.rowHeights = new int[] {0};
     gridBagLayout.columnWeights = new double[] {1.0, 0.0};
     gridBagLayout.rowWeights = new double[] {1.0};
@@ -69,49 +62,5 @@ public class SimulatorFrame extends JFrame {
     gbc_pnlControls.gridy = 0;
     getContentPane().add(pnlControls, gbc_pnlControls);
   }
-
-  /**
-   * Attach event handlers to GUI objects.
-   */
-  private void initialiseEventHandlers() {
-    runner.addListener(new EnvironmentRunnerListener() {
-      @Override
-      public void update() {
-        pnlView.repaint();
-        try {
-          Thread.sleep(1);
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        }
-      }
-    });
-  }
-
-  /**
-   * Load all presets into selection box.
-   */
-  private void loadPresets() {
-    pnlControls.addPreset("9N NO Line", new NineNodeLine());
-    pnlControls.addPreset("2N NO 100m", new TwoNodeNO(100, LoRaCfg.getDataRate0()));
-  }
-
-
-
-  /**
-   * Initialise model.
-   */
-  private void initialiseModel() {
-    //environment = new Environment();
-    Forest forest1 = new Forest(new Rectangle2D(0, 0, 500, 500), 1);
-    // environment.getEnvironmentObjects().add(forest1);
-    Forest forest2 = new Forest(new Rectangle2D(550, 0, 200, 500), 0.5);
-    // environment.getEnvironmentObjects().add(forest2);
-    Forest forest3 = new Forest(new Rectangle2D(800, 0, 200, 500), 0.25);
-    // environment.getEnvironmentObjects().add(forest3);
-    Forest forest4 = new Forest(new Rectangle2D(0, 600, 1000, 200), 0.1);
-    // environment.getEnvironmentObjects().add(forest4);
-  }
-
-
 
 }
