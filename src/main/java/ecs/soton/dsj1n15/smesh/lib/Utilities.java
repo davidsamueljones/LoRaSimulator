@@ -1,6 +1,9 @@
 package ecs.soton.dsj1n15.smesh.lib;
 
+import java.util.Random;
+
 public class Utilities {
+  public static Random RANDOM = new Random(0);
   
   /**
    * @param mw Value in mW
