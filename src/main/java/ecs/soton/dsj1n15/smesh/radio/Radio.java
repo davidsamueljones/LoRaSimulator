@@ -25,12 +25,15 @@ public abstract class Radio {
 
   /** A mapping of all transmissions seen to observation data */
   protected Map<Long, PartialReceive> timeMap = new LinkedHashMap<>();
-  
+
   /** Set of receive listeners that get triggered after every receive attempt */
   protected Set<ReceiveListener> receiveListeners = new LinkedHashSet<>();
-  
+
+  /** Set of tick listeners that get triggered after every tick attempt */
+  protected Set<TickListener> tickListeners = new LinkedHashSet<>();
+
   protected ReceiveResult lastReceive = null;
-  
+
   /**
    * Instantiate a Radio.
    * 
@@ -202,16 +205,10 @@ public abstract class Radio {
   public abstract Transmission send(Packet packet);
 
   /**
-   * Record transmission information viewable by the current radio. Attempt to sync and decode if
-   * required transmission data available.
+   * Listen for traffic, recording transmission information viewable by the current radio.<br>
+   * Attempt to sync and decode if required transmission data is available.
    */
-  public abstract void listen();
-
-  /**
-   * Called after any time change. Do {@link #listen()} and {@link #send(Packet packet)} calls
-   * before this so that this can be used as a cleanup function.
-   */
-  public abstract void tick();
+  public abstract void recv();
 
   /**
    * @return The current time map
@@ -219,7 +216,14 @@ public abstract class Radio {
   public Map<Long, PartialReceive> getTimeMap() {
     return timeMap;
   }
-  
+
+  /**
+   * @return The last received message
+   */
+  public ReceiveResult getLastReceive() {
+    return this.lastReceive;
+  }
+
   /**
    * Add a listener that will get triggered on every unsuccessful or successful receive. If the
    * radio would not know of an unsuccessful receive for any reason, e.g. the preamble was never
@@ -239,7 +243,7 @@ public abstract class Radio {
   public void removeReceiveListener(ReceiveListener receiveListener) {
     receiveListeners.remove(receiveListener);
   }
-  
+
   /**
    * Alert receive listeners with last receive.
    */
@@ -250,12 +254,37 @@ public abstract class Radio {
   }
 
   /**
-   * Use the recorded transmission information to check if there are any ongoing transmissions that
-   * would affect a transmission from this radio.
-   * 
-   * @return Whether there is any ongoing activity
+   * Called after any time change. Do {@link #listen()} and {@link #send(Packet packet)} calls
+   * before this so that this can be used as a cleanup function.
    */
-  public abstract boolean activityDetection();
+  public abstract void tick();
+
+  /**
+   * Add a listener that will get triggered on every tick.
+   * 
+   * @param tickListener Tick listener to add
+   */
+  public void addTickListener(TickListener tickListener) {
+    tickListeners.add(tickListener);
+  }
+
+  /**
+   * Remove a tick listener.
+   * 
+   * @param tickListener Tick listener to remove
+   */
+  public void removeTickListener(TickListener tickListener) {
+    tickListeners.remove(tickListener);
+  }
+
+  /**
+   * Alert tick listeners.
+   */
+  protected void alertTickListeners() {
+    for (TickListener tickListener : tickListeners) {
+      tickListener.tick();
+    }
+  }
 
   /**
    * If the radio is currently transmitting return the transmission object. This object may still be
