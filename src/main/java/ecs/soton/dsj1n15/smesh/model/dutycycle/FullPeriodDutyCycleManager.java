@@ -16,8 +16,8 @@ public class FullPeriodDutyCycleManager extends DutyCycleManager {
    * Create a new transmission duty cycle manager that keeps track of all previous transmissions to
    * determine next transmission times.
    * 
-   * @param initTime Initialisation time
    * @param dutyCycle Duty cycle as a decimal e.g. 0.01 = 1%
+   * @param dutyCyclePeriod The length the duty cycle period is calculated over
    */
   public FullPeriodDutyCycleManager(double dutyCycle, int dutyCyclePeriod) {
     super(dutyCycle);
