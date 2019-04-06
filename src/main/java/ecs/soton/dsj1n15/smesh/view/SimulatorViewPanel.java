@@ -32,6 +32,8 @@ public class SimulatorViewPanel extends JPanel
   private Point lastPos = null;
   private Radio nodeAtPress = null;
 
+  private volatile boolean upToDate;
+
   /**
    * Create the panel.
    */
@@ -48,6 +50,7 @@ public class SimulatorViewPanel extends JPanel
     Graphics2D g = (Graphics2D) gr;
     Dimension d = this.getSize();
     environmentDrawer.drawEnvironment(g, d);
+    upToDate = true;
   }
 
   /**
@@ -74,6 +77,21 @@ public class SimulatorViewPanel extends JPanel
   public EnvironmentDrawer getEnvironmentDrawer() {
     return environmentDrawer;
   }
+
+  /**
+   * @return Whether view is up to date
+   */
+  public boolean isUpToDate() {
+    return upToDate;
+  }
+
+  /**
+   * Set the flag to indicate the view is out of date.
+   */
+  public void setUpdateNeeded() {
+    this.upToDate = false;
+  }
+ 
 
   private void moveNode(Radio node, MouseEvent e) {
     if (lastPos != null) {
@@ -135,7 +153,6 @@ public class SimulatorViewPanel extends JPanel
     return environmentDrawer.getCoordinate(getPointOnView(e.getPoint()));
   }
 
-
   private Point getPointOnView(Point p) {
     Rectangle r = EnvironmentDrawer.getViewSpace(this.getSize());
     return new Point(p.x - r.x, p.y - r.y);
@@ -194,6 +211,5 @@ public class SimulatorViewPanel extends JPanel
 
   @Override
   public void mouseExited(MouseEvent e) {}
-
 
 }
