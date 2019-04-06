@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -27,6 +28,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import ecs.soton.dsj1n15.smesh.model.environment.EnvironmentObject;
+import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaRadio;
 import ecs.soton.dsj1n15.smesh.radio.PartialReceive;
 import ecs.soton.dsj1n15.smesh.radio.Radio;
@@ -40,6 +42,28 @@ public class EnvironmentDrawer {
   public static final double USEABLE_AREA = 0.95;
   public static final int MIN_GRID_SIZE = 5;
   public static final int MAX_GRID_SIZE = 200;
+
+  private final Color SF12_COLOR = new Color(57, 106, 177);
+  private final Color SF11_COLOR = new Color(218, 124, 48);
+  private final Color SF10_COLOR = new Color(62, 150, 81);
+  private final Color SF09_COLOR = new Color(204, 37, 41);
+  private final Color SF08_COLOR = new Color(83, 81, 84);
+  private final Color SF07_COLOR = new Color(107, 76, 154);
+
+  private final Color RESV_COLOR_A = new Color(146, 36, 40);
+  private final Color RESV_COLOR_B = new Color(148, 139, 61);
+
+  private final Color GENERIC_RADIO_COLOR = new Color(200, 200, 200);
+  private final Color GRID_COLOR = Color.LIGHT_GRAY;
+  private final Color GENERAL_ROUTE_COLOR = Color.BLACK;
+  private final Color INTERFERENCE_ROUTE_COLOR = new Color(204, 0, 0);
+  private final Color SELECTED_NODE_COLOR = new Color(0, 204, 0);
+
+  private static final float[] SOLID_LINE = null;
+  private static final float[] SHORT_DASH = {2.0f};
+  private static final float[] LONG_DASH = {5.0f};
+
+  static final int INFO_BOX_HEIGHT = 50;
 
   /** The environment to draw */
   private final Environment environment;
@@ -56,12 +80,20 @@ public class EnvironmentDrawer {
   private boolean showTransmissions = true;
   private boolean showRoutes = false;
   private boolean showRSSIs = true;
-  
+  private boolean enableAntiAlias = false;
+
   private final Map<Radio, Circle2D> nodeShapes = new LinkedHashMap<>();
 
+  private final Map<Radio, Double> rssiCache = new HashMap<>();
+  private final Map<Pair<Radio, Radio>, Double> snrCache = new HashMap<>();
   private Radio selectedNode = null;
 
   private Point2D curPos = null;
+
+  private void clearCaches() {
+    rssiCache.clear();
+    snrCache.clear();
+  }
 
   /**
    * Instantiates a new environment drawer with an environment.
@@ -95,7 +127,15 @@ public class EnvironmentDrawer {
   public void setShowRSSIs(boolean showRSSIs) {
     this.showRSSIs = showRSSIs;
   }
-  
+
+  public boolean isAntiAliasEnabled() {
+    return enableAntiAlias;
+  }
+
+  public void setAntiAliasEnable(boolean enableAntiAlias) {
+    this.enableAntiAlias = enableAntiAlias;
+  }
+
   /**
    * Creates an image of a given size using the given settings and lines.
    *
@@ -128,6 +168,9 @@ public class EnvironmentDrawer {
    */
   public void drawEnvironment(Graphics2D g, Dimension d) {
     Rectangle viewSpace = getViewSpace(d);
+    // Only use a cache for a single draw, could be cheaper to keep between draws but doesn't seem
+    // to be necessary, drawing is most expensive operation
+    clearCaches();
 
     // Save the current graphics settings
     Shape tempClip = g.getClip();
@@ -141,7 +184,9 @@ public class EnvironmentDrawer {
     newAT.setToTranslation(viewSpace.getMinX(), viewSpace.getMinY());
     g.transform(newAT);
     // Enable Anti-Aliasing
-    // g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+    if (enableAntiAlias) {
+      g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+    }
     // Draw background
     g.setColor(Color.WHITE);
     g.fillRect(0, 0, viewSpace.width, viewSpace.height);
@@ -151,8 +196,13 @@ public class EnvironmentDrawer {
     // Draw the environment if it exists
     if (environment != null) {
       drawEnvironment(g, viewSpace);
+      findRoutes();
       drawRoutes(g);
+      drawRouteSNRs(g);
       drawNodes(g, viewSpace);
+      if (showRSSIs) {
+        drawRSSIs(g, viewSpace);
+      }
     }
 
     // Draw the info box
@@ -163,68 +213,18 @@ public class EnvironmentDrawer {
     g.setStroke(new BasicStroke(4));
     g.drawRect(0, 0, viewSpace.width, viewSpace.height);
 
-
     // Restore original graphic object settings
     g.setTransform(tempAT);
     g.setClip(tempClip);
     g.setRenderingHints(tempRHs);
   }
 
-  private void drawEnvironment(Graphics2D g, Rectangle viewSpace) {
-    AffineTransform transform = getScaleTransform();
-    for (EnvironmentObject object : environment.getEnvironmentObjects()) {
-      Shape shape = object.getAwtShape();
-      shape = transform.createTransformedShape(shape);
-      if (object.getFillColor() != null) {
-        g.setColor(object.getFillColor());
-        g.fill(shape);
-      }
-      if (object.getBorderColor() != null) {
-        g.setColor(object.getBorderColor());
-        g.draw(shape);
-      }
-    }
-  }
-
-  private AffineTransform getScaleTransform() {
-    AffineTransform transform = new AffineTransform();
-    transform.concatenate(AffineTransform.getTranslateInstance(-offset.x(), -offset.y()));
-    transform.preConcatenate(AffineTransform.getScaleInstance(1 / getScale(), 1 / getScale()));
-    return transform;
-  }
-
-  private void drawInfo(Graphics2D g, Rectangle viewSpace) {
-    AffineTransform tempAT = g.getTransform();
-    int height = 50;
-
-    AffineTransform newAT = new AffineTransform();
-    newAT.setToTranslation(0, viewSpace.height - height);
-    g.transform(newAT);
-
-    Rectangle bg = new Rectangle(0, 0, viewSpace.width, height);
-    g.setColor(Color.WHITE);
-    g.fill(bg);
-    g.setColor(Color.BLACK);
-    g.setStroke(new BasicStroke(3));
-    g.draw(bg);
-
-    g.setColor(Color.BLACK);
-    g.setFont(new Font("Monospaced", Font.BOLD, 12));
-    if (curPos == null) {
-      g.drawString("X: N/A", 10, 20);
-      g.drawString("Y: N/A", 10, 40);
-    } else {
-      g.drawString(String.format("X: %.2f", curPos.x()), 10, 20);
-      g.drawString(String.format("Y: %.2f", curPos.y()), 10, 40);
-    }
-
-    // g.drawString(String.format("Time: %s", environment == null ? "N/A" : environment.getTime()),
-    // 100, 20);
-
-
-    g.setTransform(tempAT);
-  }
-
+  /**
+   * Draw the background grid at the current scale and position.
+   * 
+   * @param g Graphics object to draw to
+   * @param viewSpace The visible area
+   */
   private void drawGrid(Graphics2D g, Rectangle viewSpace) {
     Point start = getViewPosition(0, 0);
     start.x %= gridSize;
@@ -243,40 +243,87 @@ public class EnvironmentDrawer {
     g.fillOval(point.x - 2, point.y - 2, 4, 4);
   }
 
+  /**
+   * Draw all environment objects.
+   * 
+   * @param g Graphics object to draw to
+   * @param viewSpace The visible area
+   */
+  private void drawEnvironment(Graphics2D g, Rectangle viewSpace) {
+    AffineTransform transform = getScaleTransform();
+    for (EnvironmentObject object : environment.getEnvironmentObjects()) {
+      Shape shape = object.getAwtShape();
+      shape = transform.createTransformedShape(shape);
+      if (object.getFillColor() != null) {
+        g.setColor(object.getFillColor());
+        g.fill(shape);
+      }
+      if (object.getBorderColor() != null) {
+        g.setColor(object.getBorderColor());
+        g.draw(shape);
+      }
+    }
+  }
+
+  private void drawInfo(Graphics2D g, Rectangle viewSpace) {
+    AffineTransform tempAT = g.getTransform();
+    // Shift drawing position to bottom of grid
+    AffineTransform newAT = new AffineTransform();
+    newAT.setToTranslation(0, viewSpace.height - INFO_BOX_HEIGHT);
+    g.transform(newAT);
+
+    Rectangle bg = new Rectangle(0, 0, viewSpace.width, INFO_BOX_HEIGHT);
+    g.setColor(Color.WHITE);
+    g.fill(bg);
+    g.setColor(Color.BLACK);
+    g.setStroke(new BasicStroke(3));
+    g.draw(bg);
+
+    g.setColor(Color.BLACK);
+    g.setFont(new Font("Monospaced", Font.BOLD, 12));
+    if (curPos == null) {
+      g.drawString("X: N/A", 10, 20);
+      g.drawString("Y: N/A", 10, 40);
+    } else {
+      g.drawString(String.format("X: %.2f", curPos.x()), 10, 20);
+      g.drawString(String.format("Y: %.2f", curPos.y()), 10, 40);
+    }
+
+    g.setTransform(tempAT);
+  }
+
   private void drawNodes(Graphics2D g, Rectangle viewSpace) {
     nodeShapes.clear();
     Rectangle2D viewArea = getCoordinateSpace(viewSpace);
     g.setStroke(new BasicStroke(2));
-    int radius = 7;
+    int radius = 10;
     for (Radio node : environment.getNodes()) {
       if (viewArea.contains(node.getXY())) {
+        // Determine colour scheme
+        Color border = Color.BLACK;
+        Color fill = GENERIC_RADIO_COLOR;
+        if (node.getCurrentTransmission() != null) {
+          fill = new Color(0, 0, 255);
+        }
+        if (getSelectedNode() == node) {
+          border = SELECTED_NODE_COLOR;
+        }
+        // Draw shape
         Point p = getViewPosition(node.getXY());
         Circle2D s = new Circle2D(p.x, p.y, radius);
-        g.setColor(Color.RED);
+        g.setColor(fill);
         g.fill(s.asAwtShape());
+        // Label it with its ID
+        FontMetrics fm = g.getFontMetrics();
+        String strID = String.valueOf(node.getID());
+        int strIDX = p.x - fm.stringWidth(strID) / 2;
+        int strIDY = p.y + fm.getHeight() / 3;
+        g.setColor(getViewableTextColor(fill));
+        g.drawString(strID, strIDX, strIDY);
+        // Draw a border
         g.setStroke(new BasicStroke(2));
-        if (node.equals(selectedNode)) {
-          g.setColor(new Color(0, 230, 0));
-        } else {
-          g.setColor(Color.BLACK);
-        }
+        g.setColor(border);
         g.draw(s.asAwtShape());
-        if (showRSSIs && node.getCurrentTransmission() == null) {
-          String strRssi = String.format("%d", (int) environment.getRSSI(node));
-          FontMetrics fm = g.getFontMetrics();
-          int strX = p.x - fm.stringWidth(strRssi) / 2;
-          int strY = p.y - fm.getHeight();
-          g.setColor(Color.WHITE);
-          g.fillRoundRect(strX - 2, strY - fm.getHeight() + 3, fm.stringWidth(strRssi) + 4,
-              fm.getHeight(), 5, 5);
-          g.setColor(Color.LIGHT_GRAY);
-          g.setStroke(new BasicStroke(1));
-          g.drawRoundRect(strX - 2, strY - fm.getHeight() + 3, fm.stringWidth(strRssi) + 4,
-              fm.getHeight(), 5, 5);
-          g.setColor(Color.BLACK);
-          g.drawString(strRssi, strX, strY);
-
-        }
         nodeShapes.put(node, s);
       }
     }
@@ -285,76 +332,140 @@ public class EnvironmentDrawer {
   public Map<Radio, Circle2D> getNodeShapes() {
     return nodeShapes;
   }
-
-  private void drawRoute(Graphics2D g, Radio a, Radio b, Color baseColor) {
-    Point pa = getViewPosition(a.getXY());
-    Point pb = getViewPosition(b.getXY());
-    Point mid = new Point(pa.x + (pb.x - pa.x) / 2, pa.y + (pb.y - pa.y) / 2);
-    Line2D line = new Line2D(pa.x, pa.y, pb.x, pb.y);
-
-    double snr = environment.getReceiveSNR(a, b);
-    snr = Math.min(environment.getReceiveSNR(b, a), snr);
-    int opacity = 0;
-    if (snr >= b.getRequiredSNR()) {
-      opacity = 255;
-    } else {
-      int leeway = 5;
-      double strength = leeway + snr - b.getRequiredSNR();
-      opacity = (int) Math.max(0, Math.min(255, strength * 255 / leeway));
+  
+  private void drawRSSIs(Graphics2D g, Rectangle viewSpace) {
+    for (Radio node : environment.getNodes()) {
+      if (node.getCurrentTransmission() == null) {
+        // Get RSSI value for node and cache it if it is not already
+        double rssi = findNodeRSSI(node);
+        // Draw the RSSI string
+        Point p = getViewPosition(node.getXY());
+        String strRssi = String.format("%d", (int) rssi);
+        FontMetrics fm = g.getFontMetrics();
+        int strX = p.x - fm.stringWidth(strRssi) / 2;
+        int strY = p.y - fm.getHeight();
+        g.setColor(Color.WHITE);
+        g.fillRoundRect(strX - 2, strY - fm.getHeight() + 3, fm.stringWidth(strRssi) + 4,
+            fm.getHeight(), 5, 5);
+        g.setColor(Color.LIGHT_GRAY);
+        g.setStroke(new BasicStroke(1));
+        g.drawRoundRect(strX - 2, strY - fm.getHeight() + 3, fm.stringWidth(strRssi) + 4,
+            fm.getHeight(), 5, 5);
+        g.setColor(Color.BLACK);
+        g.drawString(strRssi, strX, strY);
+      }
     }
-    Color color = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), opacity);
-
-
-    g.setColor(color);
-    g.draw(line.asAwtShape());
-
-    String strSNR = String.format("%d", (int) snr);
-    FontMetrics fm = g.getFontMetrics();
-    int strX = mid.x - fm.stringWidth(strSNR) / 2;
-    int strY = mid.y;
-    g.setColor(new Color(255, 255, 255, opacity));
-    g.fillRoundRect(strX - 2, strY - fm.getHeight() + 3, fm.stringWidth(strSNR) + 4, fm.getHeight(),
-        5, 5);
-    g.setColor(new Color(192, 192, 192, opacity));
-    g.setStroke(new BasicStroke(1));
-    g.drawRoundRect(strX - 2, strY - fm.getHeight() + 3, fm.stringWidth(strSNR) + 4, fm.getHeight(),
-        5, 5);
-    g.setColor(color);
-    g.drawString(String.format("%d", (int) snr), strX, strY);
-
+  }
+  
+  private double findNodeRSSI(Radio radio) {
+    // Get RSSI value for route and cache it if it is not already
+    double rssi;
+    if (rssiCache.containsKey(radio)) {
+      rssi = rssiCache.get(radio);
+    } else {
+      rssi = environment.getRSSI(radio);
+      rssiCache.put(radio, rssi);
+    }
+    return rssi;
   }
 
-  private static final float[] SOLID_LINE = null;
-  private static final float[] LONG_DASH = {5.0f};
+  
 
-  private void drawRoutes(Graphics2D g) {
-    Set<Pair<Radio, Radio>> routes = new LinkedHashSet<>();
-    // Draw transmissions
+  private double findRouteWorstSNR(Radio a, Radio b) {
+    double snrA = findRouteSNR(a, b);
+    double snrB = findRouteSNR(b, a);
+    return Math.min(snrA, snrB);
+  }
+
+  private double findRouteSNR(Radio tx, Radio rx) {
+    // Get SNR value for route and cache it if it is not already
+    double snr;
+    Pair<Radio, Radio> route = new ImmutablePair<>(tx, rx);
+    if (snrCache.containsKey(route)) {
+      snr = snrCache.get(route);
+    } else {
+      snr = environment.getReceiveSNR(tx, rx);
+      snrCache.put(route, snr);
+    }
+    return snr;
+  }
+
+
+  private int determineOpacity(double value, double required) {
+    int opacity = 0;
+    if (value >= required) {
+      opacity = 255;
+    } else {
+      double leeway = value * 0.1;
+      double strength = (required + leeway) - value;
+      opacity = (int) Math.max(0, Math.min(255, strength * 255 / leeway));
+    }
+    return opacity;
+  }
+
+
+  List<Pair<Radio, Radio>> routes = new ArrayList<>();
+  List<Color> routeColors = new ArrayList<>();
+  List<float[]> routeStyles = new ArrayList<>();
+  List<Integer> routeOpacity = new ArrayList<>();
+  List<Double> routeSNRs = new ArrayList<>();
+
+  private void findRoutes() {
+    // Clear current route data
+    routes.clear();
+    routeColors.clear();
+    routeStyles.clear();
+    routeOpacity.clear();
+    routeSNRs.clear();
+
+    // Find transmission routes
     if (showTransmissions) {
       for (Radio radio : environment.getNodes()) {
         PartialReceive receive = radio.getTimeMap().get(environment.getTime());
-        if (receive != null) {
-          Color color = new Color(0, 0, 204);
-          float dash[] = SOLID_LINE;
-          Transmission synced = null;
-          if (radio instanceof LoRaRadio) {
-            synced = ((LoRaRadio) radio).getSyncedSignal();
-          }
-          if (synced != null) {
-            if (synced != receive.transmission) {
-              color = new Color(204, 0, 0);
-            }
-          } else {
-            dash = LONG_DASH;
-          }
-          g.setStroke(
-              new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10, dash, 0));
-          drawRoute(g, receive.transmission.sender, radio, color);
-          routes.add(new ImmutablePair<>(receive.transmission.sender, radio));
+        if (receive == null) {
+          continue;
         }
+
+        // Default style
+        Color color = new Color(0, 0, 204);
+        float style[] = SOLID_LINE;
+
+        Transmission synced = null;
+        long preambleEnd = receive.transmission.startTime;
+        if (radio instanceof LoRaRadio) {
+          synced = ((LoRaRadio) radio).getSyncedSignal();
+          LoRaCfg senderCfg = ((LoRaRadio) receive.transmission.sender).getLoRaCfg();
+          preambleEnd += senderCfg.calculatePreambleTime();
+        }
+
+        if (synced != null) {
+          if (synced != receive.transmission) {
+            color = new Color(204, 0, 0);
+            style = LONG_DASH;
+          }
+        } else {
+
+          if (environment.getTime() >= receive.transmission.startTime
+              && environment.getTime() <= preambleEnd) {
+            style = LONG_DASH;
+          } else {
+            color = Color.LIGHT_GRAY;
+          }
+        }
+        // Determine opacity based on snr of a one way route
+        double snr = findRouteSNR(radio, receive.transmission.sender);
+        int opacity = determineOpacity(snr, radio.getRequiredSNR());
+
+        // Add to routes to draw
+        routes.add(new ImmutablePair<>(receive.transmission.sender, radio));
+        routeColors.add(color);
+        routeStyles.add(style);
+        routeOpacity.add(opacity);
+        routeSNRs.add(snr);
       }
+
     }
-    // Draw routes
+    // Find possible routes that aren't already created as transmissions
     if (showRoutes) {
       List<Radio> nodes = new ArrayList<>(environment.getNodes());
       for (int s = 0; s < nodes.size(); s++) {
@@ -363,9 +474,8 @@ public class EnvironmentDrawer {
           Radio b = nodes.get(t);
           if (!(routes.contains(new ImmutablePair<>(a, b))
               || routes.contains(new ImmutablePair<>(b, a)))) {
-            Color color;
-            g.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10,
-                LONG_DASH, 0));
+            Color color = null;
+            float[] style = LONG_DASH;
             if (a.canCommunicate(b)) {
               color = Color.BLACK;
             } else if (a.canInterfere(b)) {
@@ -373,14 +483,69 @@ public class EnvironmentDrawer {
             } else {
               continue;
             }
-            drawRoute(g, nodes.get(s), nodes.get(t), color);
+            // Determine opacity based on SNR of route both ways
+            double snr = findRouteWorstSNR(a, b);
+            int opacity = determineOpacity(snr, b.getRequiredSNR());
+            // Add to routes to draw
+            routes.add(new ImmutablePair<>(a, b));
+            routeColors.add(color);
+            routeStyles.add(style);
+            routeOpacity.add(opacity);
+            routeSNRs.add(snr);
           }
         }
       }
     }
   }
 
+  private void drawRoutes(Graphics2D g) {
+    // Draw routes in reverse so transmission routes are on top
+    for (int i = (routes.size() - 1); i >= 0; i--) {
+      Color color = routeColors.get(i);
+      color = new Color(color.getRed(), color.getGreen(), color.getBlue(), routeOpacity.get(i));
+
+      float[] style = routeStyles.get(i);
+      g.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10, style, 0));
+      g.setColor(color);
+      Point pa = getViewPosition(routes.get(i).getLeft().getXY());
+      Point pb = getViewPosition(routes.get(i).getRight().getXY());
+      Line2D line = new Line2D(pa.x, pa.y, pb.x, pb.y);
+      g.draw(line.asAwtShape());
+    }
+  }
+
+  private void drawRouteSNRs(Graphics2D g) {
+    for (int i = (routes.size() - 1); i >= 0; i--) {
+      Color color = routeColors.get(i);
+      int opacity = routeOpacity.get(i);
+      color = new Color(color.getRed(), color.getGreen(), color.getBlue(), opacity);
+      int snr = (int) Math.ceil(routeSNRs.get(i));
+      Point pa = getViewPosition(routes.get(i).getLeft().getXY());
+      Point pb = getViewPosition(routes.get(i).getRight().getXY());
+      Point mid = new Point(pa.x + (pb.x - pa.x) / 2, pa.y + (pb.y - pa.y) / 2);
+      String strSNR = String.format("%d", (int) snr);
+      FontMetrics fm = g.getFontMetrics();
+      int strX = mid.x - fm.stringWidth(strSNR) / 2;
+      int strY = mid.y;
+      g.setColor(new Color(255, 255, 255, opacity));
+      g.fillRoundRect(strX - 2, strY - fm.getHeight() + 3, fm.stringWidth(strSNR) + 4,
+          fm.getHeight(), 5, 5);
+      g.setColor(new Color(192, 192, 192, opacity));
+      g.setStroke(new BasicStroke(1));
+      g.drawRoundRect(strX - 2, strY - fm.getHeight() + 3, fm.stringWidth(strSNR) + 4,
+          fm.getHeight(), 5, 5);
+      g.setColor(color);
+      g.drawString(strSNR, strX, strY);
+    }
+  }
+
+  /**
+   * Centre the coordinate space in the view so that all nodes are visible.
+   * 
+   * @param viewSpace The physical space to draw in
+   */
   public void centreView(Rectangle viewSpace) {
+    viewSpace.height = viewSpace.height - INFO_BOX_HEIGHT;
     if (environment != null && viewSpace.width > 0 && viewSpace.height > 0) {
       // Find the extremities
       double minX = Double.MAX_VALUE;
@@ -401,7 +566,6 @@ public class EnvironmentDrawer {
           maxY = radio.getY();
         }
       }
-
       double width = (maxX - minX);
       double height = (maxY - minY);
       double minWidthScale = viewSpace.width / width;
@@ -414,8 +578,7 @@ public class EnvironmentDrawer {
       Point2D targetCentre =
           new Point2D(offset.x() + minX + width / 2, offset.y() + minY + height / 2);
       setGridSize(newSize);
-      Point2D newCentre =
-          getCoordinate(new Point(viewSpace.width / 2, viewSpace.height / 2));
+      Point2D newCentre = getCoordinate(new Point(viewSpace.width / 2, viewSpace.height / 2));
       Point2D newOffset =
           new Point2D(targetCentre.x() - newCentre.x(), targetCentre.y() - newCentre.y());
       setOffset(newOffset);
@@ -474,6 +637,15 @@ public class EnvironmentDrawer {
     this.gridUnit = gridUnit;
   }
 
+  /**
+   * @return The scale transform to translate coordinate space to drawing (view) space
+   */
+  private AffineTransform getScaleTransform() {
+    AffineTransform transform = new AffineTransform();
+    transform.concatenate(AffineTransform.getTranslateInstance(-offset.x(), -offset.y()));
+    transform.preConcatenate(AffineTransform.getScaleInstance(1 / getScale(), 1 / getScale()));
+    return transform;
+  }
 
   /**
    * Convert a point in coordinate space into view space.
@@ -578,6 +750,27 @@ public class EnvironmentDrawer {
    */
   public static int getMaxSquareDisplay(Dimension d) {
     return (int) Math.round(Math.min(d.width, d.height) * USEABLE_AREA);
+  }
+
+  /**
+   * Get a colour that is viewable on a given background colour.
+   * 
+   * @param bg Background colour
+   * @return Colour that should be viewable on background colour
+   */
+  public static Color getViewableTextColor(Color bg) {
+    float[] bgHSB = Color.RGBtoHSB(bg.getRed(), bg.getGreen(), bg.getBlue(), null);
+    float bgBrightness = bgHSB[2];
+    final float crossOver = (float) 0.8;
+    final float fgMinBrightness = (float) 0;
+    final float fgMaxBrightness = (float) 1.0;
+    float fgBrightness;
+    if (bgBrightness < crossOver) {
+      fgBrightness = fgMinBrightness;
+    } else {
+      fgBrightness = fgMaxBrightness;
+    }
+    return Color.getHSBColor(bgHSB[0], bgHSB[1] / 5, fgBrightness);
   }
 
 }
