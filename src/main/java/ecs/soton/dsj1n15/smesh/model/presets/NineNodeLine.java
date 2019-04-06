@@ -13,7 +13,7 @@ public class NineNodeLine extends Preset {
   }
 
   @Override
-  protected void generate() {
+  public void generate() {
     double z = DEFAULT_NODE_Z;
     // Empty environment
     environment = new Environment();

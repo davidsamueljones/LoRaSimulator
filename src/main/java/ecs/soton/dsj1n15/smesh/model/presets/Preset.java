@@ -13,7 +13,7 @@ public abstract class Preset {
   protected Environment environment;
   protected Map<Long, List<Event>> events = new LinkedHashMap<>();
   
-  protected abstract void generate();
+  public abstract void generate();
   
   public Environment getEnvironment() {
     return environment;

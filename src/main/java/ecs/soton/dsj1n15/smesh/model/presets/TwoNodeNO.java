@@ -19,7 +19,7 @@ public class TwoNodeNO extends Preset {
   }
 
   @Override
-  protected void generate() {
+  public void generate() {
     Cloner cloner = new Cloner();
 
     double z = DEFAULT_NODE_Z;
