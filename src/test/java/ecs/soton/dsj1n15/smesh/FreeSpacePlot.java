@@ -9,6 +9,7 @@ import ecs.soton.dsj1n15.smesh.lib.Debugger;
 import ecs.soton.dsj1n15.smesh.lib.Utilities;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
+import ecs.soton.dsj1n15.smesh.model.presets.Preset;
 import ecs.soton.dsj1n15.smesh.model.presets.TwoNodeNO;
 import ecs.soton.dsj1n15.smesh.radio.ReceiveListener;
 import ecs.soton.dsj1n15.smesh.radio.ReceiveResult;
@@ -28,12 +29,12 @@ public class FreeSpacePlot {
   public static void main(String[] args) {
     Debugger.setOutputEnabled(false);
     List<LoRaCfg> cfgs = new ArrayList<>();
-    cfgs.add(LoRaCfg.getDataRate0());
-    cfgs.add(LoRaCfg.getDataRate1());
-    cfgs.add(LoRaCfg.getDataRate2());
-    cfgs.add(LoRaCfg.getDataRate3());
-    cfgs.add(LoRaCfg.getDataRate4());
     cfgs.add(LoRaCfg.getDataRate5());
+    cfgs.add(LoRaCfg.getDataRate4());
+    cfgs.add(LoRaCfg.getDataRate3());
+    cfgs.add(LoRaCfg.getDataRate2());
+    cfgs.add(LoRaCfg.getDataRate1());
+    cfgs.add(LoRaCfg.getDataRate0());
 
     FreeSpacePlot plot = new FreeSpacePlot();
     System.out.println("group,distance,height,density,weather,n,sf,pl,cr,pp,snr,rssi,ps");
@@ -81,7 +82,10 @@ public class FreeSpacePlot {
       double avgSNR = 0;
       double avgRSSI = 0;
       for (int n = 0; n < exp; n++) {
-        Environment environment = new TwoNodeNO(distance, cfg).getEnvironment();
+        Preset preset = new TwoNodeNO(distance, cfg);
+        Environment environment = preset.getEnvironment();
+        runner.clearEvents();
+        runner.addEvents(preset.getEvents());
         TestListener listener = new TestListener();
         environment.getNode(2).addReceiveListener(listener);
         runner.setEnvironment(environment);
@@ -114,7 +118,7 @@ public class FreeSpacePlot {
   }
 
   public int getStep() {
-    return 1000;
+    return 20;
   }
 
 
