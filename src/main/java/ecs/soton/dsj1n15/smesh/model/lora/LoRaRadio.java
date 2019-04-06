@@ -1,8 +1,7 @@
-package ecs.soton.dsj1n15.smesh.model.lora;
+  package ecs.soton.dsj1n15.smesh.model.lora;
 
 import java.util.Iterator;
 import java.util.Map.Entry;
-import java.util.Random;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import ecs.soton.dsj1n15.smesh.lib.Debugger;
@@ -19,7 +18,7 @@ public class LoRaRadio extends Radio {
   public static final double DEFAULT_CABLE_LOSS = 1.5;
 
   /** Radio configuration */
-  private final LoRaCfg cfg;
+  private LoRaCfg cfg;
 
   /** Antenna gain */
   private double antennaGain;
@@ -36,6 +35,18 @@ public class LoRaRadio extends Radio {
   /** The transmission currently being received */
   private Transmission synced = null;
 
+  /** Whether channel activity detection (CAD) is enabled */
+  boolean cadEnabled = false;
+
+  /** Whether channel activity was found */
+  boolean cadFound = false;
+
+  /** If enabled, when CAD capture should finish */
+  long cadCaptureFinishTime = 0;
+
+  /** If enabled, when CAD capture and processing is finished */
+  long cadCompleteTime = 0;
+
   /**
    * Instantiate a LoRa Radio using the default configuration.
    * 
@@ -51,6 +62,10 @@ public class LoRaRadio extends Radio {
     this.cfg = cfg;
     this.antennaGain = DEFAULT_ANTENNA_GAIN;
     this.cableLoss = DEFAULT_CABLE_LOSS;
+  }
+
+  public void setLoRaCfg(LoRaCfg cfg) {
+    this.cfg = cfg;
   }
 
   public LoRaCfg getLoRaCfg() {
@@ -130,6 +145,9 @@ public class LoRaRadio extends Radio {
     if (tx != null) {
       throw new IllegalStateException("Node is already transmitting");
     }
+    if (cadEnabled) {
+      throw new IllegalStateException("Cannot transmit whilst doing CAD");
+    }
     long airtime = cfg.calculatePacketAirtime(packet.length);
     tx = new Transmission(this, packet, environment.getTime(), airtime);
     Debugger
@@ -138,16 +156,33 @@ public class LoRaRadio extends Radio {
   }
 
   @Override
+  public void recv() {
+    if (tx != null) {
+      throw new IllegalStateException("Node cannot receive whilst transmitting");
+    }
+    // Capture data in receive stream
+    listen();
+
+    // Whilst in CAD mode cannot attempt to receive packets
+    if (cadEnabled) {
+      return;
+    }
+    // Find a signal to synchronise with
+    if (synced == null) {
+      findSync();
+    }
+    // Attempt to receive synchronised signal
+    if (synced != null) {
+      decodePacket();
+    }
+  }
+
   public void listen() {
     Long globalTime = environment.getTime();
-    if (tx != null) {
-      throw new IllegalStateException("Node cannot listen whilst transmitting");
-    }
-    if (timeMap.containsKey(globalTime)) {
+    if (timeMap.containsKey(environment.getTime())) {
       throw new IllegalStateException("Already listened at this point");
     }
     timeMap.put(globalTime, null);
-
     // Find the receive to capture in this slot
     PartialReceive receive = null;
     double rssi = environment.getRSSI(this);
@@ -163,8 +198,7 @@ public class LoRaRadio extends Radio {
       // Ignore the transmission if it isn't successfully received
       double snr = environment.getReceiveSNR(transmission.sender, this);
       // Mix a bit of random noise in
-      Random r = new Random();
-      snr = snr + r.nextInt(3) - 1;
+      snr = snr + Utilities.RANDOM.nextInt(3) - 1;
 
       // Capture if the signal is more likely to be received than the last
       boolean better;
@@ -184,80 +218,22 @@ public class LoRaRadio extends Radio {
         receive = new PartialReceive(transmission, globalTime, snr, rssi);
       }
     }
-    // Record the signal if it was successful
-
+    // Record the partial receive if it was successful
     if (receive != null) {
       boolean success = getReceiveSuccess(receive.snr);
       if (success) {
         timeMap.put(globalTime, receive);
       }
-      // System.out.println(String.format("Time: %8d | [%d -> %d] | SNR: %4d RSSI: %4d | %s",
-      // receive.time, receive.transmission.sender.getID(), id, (int) receive.snr,
-      // (int) receive.rssi, success ? "" : "[FAIL]"));
-    }
-
-
-    // Find a signal to synchronise with
-    if (synced == null) {
-      findSync();
-    }
-    // Attempt to receive synchronised signal
-    if (synced != null) {
-      recv();
     }
   }
 
-  private void recv() {
-    LoRaCfg senderCfg = ((LoRaRadio) synced.sender).getLoRaCfg();
-    long startTime = synced.startTime + senderCfg.calculatePreambleTime();
-    int correct = 0;
-    int incorrect = 0;
-    double totalSNR = 0;
-    double totalRSSI = 0;
-    Long clearTo = null;
-    for (Entry<Long, PartialReceive> entry : timeMap.entrySet()) {
-      long time = entry.getKey();
-      if (time < startTime) {
-        continue;
-      }
-      if (time > synced.endTime) {
-        int partials = correct + incorrect;
-        // Convert mw values to dbm
-        totalSNR = Utilities.mw2dbm(totalSNR / partials);
-        totalRSSI = Utilities.mw2dbm(totalRSSI / partials);
-        // Determine if the number of receive errors can be fixed by coding rate
-        double maxErrors = 1 - (4 / (double) senderCfg.getCR());
-        boolean success = (incorrect / (double) partials) < maxErrors;
-        if (success) {
-          lastReceive = ReceiveResult.getSuccessResult(synced.packet, time, totalSNR, totalRSSI);
-          Debugger.println(this.id + " Successful Receive! " + correct + " | " + incorrect);
-        } else {
-          lastReceive = ReceiveResult.getCRCFailResult(time, totalSNR, totalRSSI);
-          Debugger.println("Failed Receive! " + correct + " | " + incorrect);
-        }
-        synced = null;
-        alertReceiveListeners();
-        clearTo = entry.getKey();
-        break;
-      }
-      if (entry.getValue() == null || entry.getValue().transmission != synced) {
-        incorrect++;
-      } else {
-        correct++;
-        totalSNR += Utilities.dbm2mw(entry.getValue().snr);
-        totalRSSI += Utilities.dbm2mw(entry.getValue().rssi);
-      }
-    }
-    if (clearTo != null) {
-      final long clearCondition = clearTo;
-      timeMap.keySet().removeIf(x -> x <= clearCondition);
-      this.lastTime = clearTo;
-    }
-  }
+
 
   /**
+   * Find a preamble in the input stream to synchronise with. Start by finding the first 'important'
+   * preamble symbol and then search ahead to make sure the full important preamble is found.
    * 
-   * @return Whether a preamble was found and synced with
+   * @return Whether a preamble was found and synchronised with
    */
   private boolean findSync() {
     Transmission detected = null;
@@ -288,10 +264,7 @@ public class LoRaRadio extends Radio {
         if (lr.getLeft() == LookaheadResult.FOUND_END) {
           gotSync = true;
           break;
-        }
-
-        // A collision has occurred, this preamble is corrupted
-        if (lr.getLeft() == LookaheadResult.COLLISION) {
+        } else if (lr.getLeft() != LookaheadResult.NO_END) {
           // Can forget about information up to this point as it will always be a collision
           // Reset the iterator so we can remove from the beginning
           itrTimeMap = timeMap.entrySet().iterator();
@@ -305,6 +278,11 @@ public class LoRaRadio extends Radio {
           }
           this.lastTime = lr.getRight();
           lastPreambleCheck = lr.getRight();
+          // A radio knows would know if a collision occurs so alert of a failed receive
+          if (lr.getLeft() == LookaheadResult.COLLISION) {
+            this.lastReceive = ReceiveResult.getCollisionResult(detected, lr.getRight());
+            alertReceiveListeners();
+          }     
         }
       }
     }
@@ -328,20 +306,29 @@ public class LoRaRadio extends Radio {
   private Pair<LookaheadResult, Long> preambleLookahead(Transmission target, long startTime) {
     LoRaCfg senderCfg = ((LoRaRadio) target.sender).getLoRaCfg();
     double preambleFinish = target.startTime + senderCfg.calculatePreambleTime();
-    long missedTime = 0;
+    long timeNoSignal = 0;
+    long timeWrongSignal = 0;
     long lastTime = startTime;
     for (Entry<Long, PartialReceive> next : timeMap.entrySet()) {
       if (next.getKey() < startTime) {
         lastTime = next.getKey();
         continue;
       }
-      // Another signal detected in important preamble section, this is a collision
-      if (next.getValue() == null || next.getValue().transmission != target) {
-        missedTime += (next.getKey() - lastTime);
-        if (missedTime > (LoRaCfg.getSymbolTime(senderCfg))) {
+      // Accumulate time where data was not any signal or the wrong signal
+      if (next.getValue() == null) {
+        timeNoSignal += (next.getKey() - lastTime);
+      } else if (next.getValue().transmission != target) {
+        timeWrongSignal += (next.getKey() - lastTime);
+      }
+      // If more than a symbol time is wrong then give up
+      if ((timeWrongSignal + timeNoSignal) > LoRaCfg.getSymbolTime(senderCfg)) {
+        if (timeWrongSignal >= timeNoSignal) {
           return new ImmutablePair<>(LookaheadResult.COLLISION, next.getKey());
+        } else {
+          return new ImmutablePair<>(LookaheadResult.TIMEOUT, next.getKey());
         }
       }
+
       if (target != null) {
         // Found the end and we haven't had a collision, got the full preamble
         if (preambleFinish >= lastTime && preambleFinish <= next.getKey()) {
@@ -353,13 +340,92 @@ public class LoRaRadio extends Radio {
     return new ImmutablePair<>(LookaheadResult.NO_END, null);
   }
 
+  /**
+   * Attempt to receive the payload of a synchronised signal. A successful receive occurs if the
+   * number of incorrect partial receives are less than the coding rate can accept. Coding rate
+   * performance is assumed to be perfect where CR of 4/5 can correct 20% of the signal etc...
+   */
+  private void decodePacket() {
+    if (synced == null) {
+      return;
+    }
+    LoRaCfg senderCfg = ((LoRaRadio) synced.sender).getLoRaCfg();
+    long startTime = synced.startTime + senderCfg.calculatePreambleTime();
+    int correct = 0;
+    int incorrect = 0;
+    double totalSNR = 0;
+    double totalRSSI = 0;
+    Long clearTo = null;
+    for (Entry<Long, PartialReceive> entry : timeMap.entrySet()) {
+      long time = entry.getKey();
+      if (time < startTime) {
+        continue;
+      }
+      if (time > synced.endTime) {
+        int partials = correct + incorrect;
+        // Convert final mW values back to dBm
+        totalSNR = Utilities.mw2dbm(totalSNR / partials);
+        totalRSSI = Utilities.mw2dbm(totalRSSI / partials);
+        // Determine if the number of receive errors can be fixed by coding rate
+        double maxErrors = 1 - (4 / (double) senderCfg.getCR());
+        boolean success = (incorrect / (double) partials) < maxErrors;
+        if (success) {
+          lastReceive = ReceiveResult.getSuccessResult(synced, time, totalSNR, totalRSSI);
+          Debugger.println(this.id + " Successful Receive! " + correct + " | " + incorrect);
+        } else {
+          lastReceive = ReceiveResult.getCRCFailResult(synced, time, totalSNR, totalRSSI);
+          Debugger.println("Failed Receive! " + correct + " | " + incorrect);
+        }
+        synced = null;
+        alertReceiveListeners();
+        clearTo = entry.getKey();
+        break;
+      }
+      // Check whether input is part of the expected stream
+      if (entry.getValue() == null || entry.getValue().transmission != synced) {
+        incorrect++;
+      } else {
+        correct++;
+        totalSNR += Utilities.dbm2mw(entry.getValue().snr);
+        totalRSSI += Utilities.dbm2mw(entry.getValue().rssi);
+      }
+    }
+    // Can clear all of receive from input stream if it has been processed
+    if (clearTo != null) {
+      final long clearCondition = clearTo;
+      timeMap.keySet().removeIf(x -> x <= clearCondition);
+      this.lastTime = clearTo;
+    }
+  }
+
   @Override
   public void tick() {
-    if (tx != null && tx.endTime < environment.getTime()) {
+    // Clear any finished transmissions
+    if (tx != null && tx.endTime <= environment.getTime()) {
       tx = null;
       this.lastTime = environment.getTime();
-      timeMap.keySet().removeIf(x -> x < environment.getTime());
+      timeMap.keySet().removeIf(x -> x <= this.lastTime);
     }
+    if (cadEnabled) {
+      // Check CAD success once complete
+      if (cadCompleteTime <= environment.getTime()) {
+        doCADSearch();
+        stopCAD();
+      }
+    } else {
+      // Use simulation metadata to clear any samples that definitely aren't needed
+      if (environment.getTransmissions().isEmpty() && synced == null) {
+        timeMap.clear();
+        this.lastTime = environment.getTime();
+      }
+    }
+
+    // Let any external behaviour trigger
+    alertTickListeners();
+  }
+
+  public boolean getCADStatus() {
+    return cadFound;
   }
 
   /**
@@ -370,8 +436,7 @@ public class LoRaRadio extends Radio {
    * @return Whether the receive was successful
    */
   public boolean getReceiveSuccess(double snr) {
-    Random r = new Random();
-    return r.nextDouble() <= getReceiveProbability(snr);
+    return Utilities.RANDOM.nextDouble() <= getReceiveProbability(snr);
   }
 
   /**
@@ -393,19 +458,70 @@ public class LoRaRadio extends Radio {
     return prob;
   }
 
-  @Override
-  public boolean activityDetection() {
-    // Can't detect a transmission that isn't LoRa
-    // if (!(transmission instanceof LoRaTransmission)) {
-    // return false;
-    // }
-    // TODO: Attempt to detect preamble
-    return false;
+
+  public void startCAD() {
+    // Can't use previous receive input stream
+    timeMap.keySet().removeIf(x -> x <= environment.getTime());
+    synced = null;
+    // Schedule CAD
+    cadEnabled = true;
+    cadCaptureFinishTime = environment.getTime() + (int) LoRaCfg.getSymbolTime(cfg);
+    cadCompleteTime = environment.getTime() + (int) (LoRaCfg.getSymbolTime(cfg) * 1.85);
+  }
+
+  public void stopCAD() {
+    // Can't use CAD stream for receive
+    timeMap.keySet().removeIf(x -> x <= environment.getTime());
+    this.cadEnabled = false;
+  }
+
+  public void clearCADStatus() {
+    this.cadFound = false;
+  }
+
+  public boolean isCADMode() {
+    return this.cadEnabled;
+  }
+
+  public void doCADSearch() {
+    boolean gotActivity = false;
+    int got = 0;
+    int missed = 0;
+    // Find a symbol in the input stream
+    for (Entry<Long, PartialReceive> entry : timeMap.entrySet()) {
+      if (entry.getKey() > cadCaptureFinishTime) {
+        // As long as 50% of the signal is preamble accept it, be generous in case of low granularity
+//        if ((missed + got) > 0) {
+//          gotActivity = got / (missed + got) > 0.5;
+//        }
+        gotActivity = got > 0;
+        break;
+      }
+      PartialReceive data = entry.getValue();
+      if (data == null) {
+        missed++;
+      } else {
+        // Check if the sample is preamble
+        LoRaCfg senderCfg = ((LoRaRadio) data.transmission.sender).getLoRaCfg();
+        Transmission transmission = data.transmission;
+        long preambleEnd = transmission.startTime + senderCfg.calculatePreambleTime();
+        if (entry.getKey() >= transmission.startTime && entry.getKey() <= preambleEnd) {
+          got++;
+        } else {
+          missed++;
+        }
+      }
+    }
+    this.cadFound = gotActivity;
   }
 
   @Override
   public Transmission getCurrentTransmission() {
     return tx;
+  }
+
+  public Transmission getSyncedSignal() {
+    return synced;
   }
 
   @Override
@@ -460,7 +576,6 @@ public class LoRaRadio extends Radio {
     return String.format("LoRaRadio [id=%d, pos=(%d, %d)]", id, (int) x, (int) y);
   }
 
-
   @Override
   public int hashCode() {
     final int prime = 31;
@@ -484,11 +599,7 @@ public class LoRaRadio extends Radio {
   }
 
   enum LookaheadResult {
-    NO_END, FOUND_END, COLLISION,
-  }
-
-  public Transmission getSyncedSignal() {
-    return synced;
+    NO_END, FOUND_END, COLLISION, TIMEOUT
   }
 
 }
