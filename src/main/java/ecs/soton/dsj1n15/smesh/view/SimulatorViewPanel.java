@@ -102,7 +102,6 @@ public class SimulatorViewPanel extends JPanel
     this.upToDate = false;
   }
 
-
   /**
    * Move the node.
    * 

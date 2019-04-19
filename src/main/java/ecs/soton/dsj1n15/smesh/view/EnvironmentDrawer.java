@@ -61,12 +61,6 @@ public class EnvironmentDrawer {
   private static final float[] SHORT_DASH = {2.0f};
   private static final float[] LONG_DASH = {5.0f};
 
-  private List<Pair<Radio, Radio>> routes = new ArrayList<>();
-  private List<Color> routeColors = new ArrayList<>();
-  private List<float[]> routeStyles = new ArrayList<>();
-  private List<Integer> routeOpacity = new ArrayList<>();
-  private List<Double> routeSNRs = new ArrayList<>();
-  
   static final int INFO_BOX_HEIGHT = 50;
 
   /** The environment to draw */
@@ -81,19 +75,27 @@ public class EnvironmentDrawer {
   /** How much each square represents (unitless but could be meters/kms) */
   private int gridUnit = 100;
 
+  // Settings
   private boolean showTransmissions = true;
   private boolean showRoutes = false;
   private boolean showRSSIs = true;
   private boolean enableAntiAlias = false;
 
   private final Map<Radio, Circle2D> nodeShapes = new LinkedHashMap<>();
-
-  private final Map<Radio, Double> rssiCache = new HashMap<>();
-  private final Map<Pair<Radio, Radio>, Double> snrCache = new HashMap<>();
   private Radio selectedNode = null;
-
   private Point2D curPos = null;
 
+  // Caches for intensive calculations
+  private final Map<Radio, Double> rssiCache = new HashMap<>();
+  private final Map<Pair<Radio, Radio>, Double> snrCache = new HashMap<>();
+  
+  // Lists of route information
+  private List<Pair<Radio, Radio>> routes = new ArrayList<>();
+  private List<Color> routeColors = new ArrayList<>();
+  private List<float[]> routeStyles = new ArrayList<>();
+  private List<Integer> routeOpacity = new ArrayList<>();
+  private List<Double> routeSNRs = new ArrayList<>();
+  
   /**
    * Instantiates a new environment drawer with an environment.
    *
@@ -228,7 +230,7 @@ public class EnvironmentDrawer {
     Point start = getViewPosition(0, 0);
     start.x %= gridSize;
     start.y %= gridSize;
-    g.setColor(Color.LIGHT_GRAY);
+    g.setColor(GRID_COLOR);
     for (int xi = -1; xi <= (viewSpace.width / gridSize + 1); xi++) {
       for (int yi = -1; yi <= (viewSpace.height / gridSize + 1); yi++) {
         int drawX = start.x + gridSize * xi;
@@ -264,6 +266,12 @@ public class EnvironmentDrawer {
     }
   }
 
+  /**
+   * Draw the info box at the bottom of the view.
+   * 
+   * @param g Graphics object to draw to
+   * @param viewSpace The visible area
+   */
   private void drawInfo(Graphics2D g, Rectangle viewSpace) {
     AffineTransform tempAT = g.getTransform();
     // Shift drawing position to bottom of grid
@@ -280,6 +288,7 @@ public class EnvironmentDrawer {
 
     g.setColor(Color.BLACK);
     g.setFont(new Font("Monospaced", Font.BOLD, 12));
+    FontMetrics fm = g.getFontMetrics();
     if (curPos == null) {
       g.drawString("X: N/A", 10, 20);
       g.drawString("Y: N/A", 10, 40);
@@ -287,10 +296,18 @@ public class EnvironmentDrawer {
       g.drawString(String.format("X: %.2f", curPos.x()), 10, 20);
       g.drawString(String.format("Y: %.2f", curPos.y()), 10, 40);
     }
+    String strScale = String.format("1 Square == %dm  ", getGridUnit());
+    g.drawString(strScale, viewSpace.y + viewSpace.width - fm.stringWidth(strScale) - 10, 40);
 
     g.setTransform(tempAT);
   }
 
+  /**
+   * Draw all the radios (nodes) in the environment. Stores the shapes used in nodeShapes.
+   * 
+   * @param g Graphics object to draw to
+   * @param viewSpace The visible area
+   */
   private void drawNodes(Graphics2D g, Rectangle viewSpace) {
     nodeShapes.clear();
     Rectangle2D viewArea = getCoordinateSpace(viewSpace);
@@ -328,10 +345,19 @@ public class EnvironmentDrawer {
     }
   }
 
+  /**
+   * @return The current node shapes that are drawn
+   */
   public Map<Radio, Circle2D> getNodeShapes() {
     return nodeShapes;
   }
-  
+
+  /**
+   * Draw the RSSI values above each node.
+   * 
+   * @param g Graphics object to draw to
+   * @param viewSpace The visible area
+   */
   private void drawRSSIs(Graphics2D g, Rectangle viewSpace) {
     for (Radio node : environment.getNodes()) {
       if (node.getCurrentTransmission() == null) {
@@ -355,7 +381,13 @@ public class EnvironmentDrawer {
       }
     }
   }
-  
+
+  /**
+   * Get the RSSI value for a node, first check the cache, if not calculate it and cache it.
+   * 
+   * @param radio The radio to check for
+   * @return The found RSSI value
+   */
   private double findNodeRSSI(Radio radio) {
     // Get RSSI value for route and cache it if it is not already
     double rssi;
@@ -368,14 +400,27 @@ public class EnvironmentDrawer {
     return rssi;
   }
 
-  
-
+  /**
+   * Find the worst case SNR between two nodes, used to highlight if interference at one end would
+   * cause issues for a bi-directional link.
+   * 
+   * @param a One of the nodes
+   * @param b One of the nodes
+   * @return The worst case SNR between the nodes
+   */
   private double findRouteWorstSNR(Radio a, Radio b) {
     double snrA = findRouteSNR(a, b);
     double snrB = findRouteSNR(b, a);
     return Math.min(snrA, snrB);
   }
 
+  /**
+   * Get the SNR value for a route, first check the cache, if not calculate it and cache it.
+   * 
+   * @param tx The transmitting radio
+   * @param rx The receiving radio
+   * @return The found SNR value
+   */
   private double findRouteSNR(Radio tx, Radio rx) {
     // Get SNR value for route and cache it if it is not already
     double snr;
@@ -388,13 +433,23 @@ public class EnvironmentDrawer {
     }
     return snr;
   }
-  
+
+  /**
+   * Full wipe of SNR and RSSI values from the cache, do this if the model has changed.
+   */
   private void clearCaches() {
     rssiCache.clear();
     snrCache.clear();
   }
 
-
+  /**
+   * Calculate an appropriate opacity for how close a value is to the maximum possible value. When
+   * required > value opacity will be 0 (after a bit of fading away leeway).
+   * 
+   * @param value Value to find opacity for
+   * @param required The maximum value before opacity fade occurs
+   * @return The calculated opacity
+   */
   private int determineOpacity(double value, double required) {
     int opacity = 0;
     if (value >= required) {
@@ -407,6 +462,10 @@ public class EnvironmentDrawer {
     return opacity;
   }
 
+  /**
+   * Find all routes and their styles in the environment. Routes can either be from ongoing
+   * transmissions or just potential routes.
+   */
   private void findRoutes() {
     // Clear current route data
     routes.clear();
@@ -437,7 +496,7 @@ public class EnvironmentDrawer {
 
         if (synced != null) {
           if (synced != receive.transmission) {
-            color = new Color(204, 0, 0);
+            color = INTERFERENCE_ROUTE_COLOR;
             style = LONG_DASH;
           }
         } else {
@@ -474,7 +533,7 @@ public class EnvironmentDrawer {
             Color color = null;
             float[] style = LONG_DASH;
             if (a.canCommunicate(b)) {
-              color = Color.BLACK;
+              color = GENERAL_ROUTE_COLOR;
             } else if (a.canInterfere(b)) {
               color = Color.RED;
             } else {
@@ -495,6 +554,11 @@ public class EnvironmentDrawer {
     }
   }
 
+  /**
+   * Draw all routes that have been found.
+   * 
+   * @param g Graphics object to draw to
+   */
   private void drawRoutes(Graphics2D g) {
     // Draw routes in reverse so transmission routes are on top
     for (int i = (routes.size() - 1); i >= 0; i--) {
@@ -511,6 +575,11 @@ public class EnvironmentDrawer {
     }
   }
 
+  /**
+   * Draw SNR values on top of found routes.
+   * 
+   * @param g Graphics object to draw to
+   */
   private void drawRouteSNRs(Graphics2D g) {
     for (int i = (routes.size() - 1); i >= 0; i--) {
       Color color = routeColors.get(i);
@@ -581,26 +650,44 @@ public class EnvironmentDrawer {
     }
   }
 
+  /**
+   * @return
+   */
   public Point2D getCurPos() {
     return curPos;
   }
 
+  /**
+   * @param curPos
+   */
   public void setCurPos(Point2D curPos) {
     this.curPos = curPos;
   }
 
+  /**
+   * @param selectedNode
+   */
   public void setSelectedNode(Radio selectedNode) {
     this.selectedNode = selectedNode;
   }
 
+  /**
+   * @return
+   */
   public Radio getSelectedNode() {
     return selectedNode;
   }
 
+  /**
+   * @return
+   */
   public Point2D getOffset() {
     return offset;
   }
 
+  /**
+   * @param offset
+   */
   public void setOffset(Point2D offset) {
     this.offset = offset;
   }
@@ -747,6 +834,7 @@ public class EnvironmentDrawer {
   public static int getMaxSquareDisplay(Dimension d) {
     return (int) Math.round(Math.min(d.width, d.height) * USEABLE_AREA);
   }
+
 
   /**
    * Get a colour that is viewable on a given background colour.
