@@ -19,10 +19,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.imageio.ImageIO;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -63,6 +61,12 @@ public class EnvironmentDrawer {
   private static final float[] SHORT_DASH = {2.0f};
   private static final float[] LONG_DASH = {5.0f};
 
+  private List<Pair<Radio, Radio>> routes = new ArrayList<>();
+  private List<Color> routeColors = new ArrayList<>();
+  private List<float[]> routeStyles = new ArrayList<>();
+  private List<Integer> routeOpacity = new ArrayList<>();
+  private List<Double> routeSNRs = new ArrayList<>();
+  
   static final int INFO_BOX_HEIGHT = 50;
 
   /** The environment to draw */
@@ -89,11 +93,6 @@ public class EnvironmentDrawer {
   private Radio selectedNode = null;
 
   private Point2D curPos = null;
-
-  private void clearCaches() {
-    rssiCache.clear();
-    snrCache.clear();
-  }
 
   /**
    * Instantiates a new environment drawer with an environment.
@@ -389,6 +388,11 @@ public class EnvironmentDrawer {
     }
     return snr;
   }
+  
+  private void clearCaches() {
+    rssiCache.clear();
+    snrCache.clear();
+  }
 
 
   private int determineOpacity(double value, double required) {
@@ -402,13 +406,6 @@ public class EnvironmentDrawer {
     }
     return opacity;
   }
-
-
-  List<Pair<Radio, Radio>> routes = new ArrayList<>();
-  List<Color> routeColors = new ArrayList<>();
-  List<float[]> routeStyles = new ArrayList<>();
-  List<Integer> routeOpacity = new ArrayList<>();
-  List<Double> routeSNRs = new ArrayList<>();
 
   private void findRoutes() {
     // Clear current route data
@@ -519,11 +516,10 @@ public class EnvironmentDrawer {
       Color color = routeColors.get(i);
       int opacity = routeOpacity.get(i);
       color = new Color(color.getRed(), color.getGreen(), color.getBlue(), opacity);
-      int snr = (int) Math.ceil(routeSNRs.get(i));
       Point pa = getViewPosition(routes.get(i).getLeft().getXY());
       Point pb = getViewPosition(routes.get(i).getRight().getXY());
       Point mid = new Point(pa.x + (pb.x - pa.x) / 2, pa.y + (pb.y - pa.y) / 2);
-      String strSNR = String.format("%d", (int) snr);
+      String strSNR = String.format("%.1f", routeSNRs.get(i));
       FontMetrics fm = g.getFontMetrics();
       int strX = mid.x - fm.stringWidth(strSNR) / 2;
       int strY = mid.y;
@@ -762,7 +758,7 @@ public class EnvironmentDrawer {
     float[] bgHSB = Color.RGBtoHSB(bg.getRed(), bg.getGreen(), bg.getBlue(), null);
     float bgBrightness = bgHSB[2];
     final float crossOver = (float) 0.8;
-    final float fgMinBrightness = (float) 0;
+    final float fgMinBrightness = 0;
     final float fgMaxBrightness = (float) 1.0;
     float fgBrightness;
     if (bgBrightness < crossOver) {

@@ -10,7 +10,7 @@ import ecs.soton.dsj1n15.smesh.lib.Utilities;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
 import ecs.soton.dsj1n15.smesh.model.presets.Preset;
-import ecs.soton.dsj1n15.smesh.model.presets.TwoNodeNO;
+import ecs.soton.dsj1n15.smesh.model.presets.TwoNode;
 import ecs.soton.dsj1n15.smesh.radio.ReceiveListener;
 import ecs.soton.dsj1n15.smesh.radio.ReceiveResult;
 import ecs.soton.dsj1n15.smesh.radio.ReceiveResult.Status;
@@ -70,19 +70,21 @@ public class FreeSpacePlot {
     snrs = new LinkedHashMap<>();
     rssis = new LinkedHashMap<>();
 
-    double distance = 10;
+    double distance = 30;
     int step = getStep();
-    // Create a runner with 1ms granularity
+    // Create a runner with 5ms granularity
     EnvironmentRunner runner = new EnvironmentRunner();
-    runner.setTimeUnit(1);
+    runner.setTimeUnit(10);
     // Sweep through the distances, with a given number of attempts at each
     final int exp = getAttempts();
-    while (true) {
+    final int maxFails = 5;
+    int noRecvCount = 0;
+    while (noRecvCount < maxFails) {
       int recv = 0;
       double avgSNR = 0;
       double avgRSSI = 0;
       for (int n = 0; n < exp; n++) {
-        Preset preset = new TwoNodeNO(distance, cfg);
+        Preset preset = new TwoNode(distance, cfg);
         Environment environment = preset.getEnvironment();
         runner.clearEvents();
         runner.addEvents(preset.getEvents());
@@ -107,18 +109,20 @@ public class FreeSpacePlot {
       snrs.put(distance, Utilities.mw2dbm(avgSNR / recv));
       rssis.put(distance, Utilities.mw2dbm(avgRSSI / recv));
       if (recv == 0) {
-        break;
+        noRecvCount++;
       }
       distance += step;
     }
+    // Stop the test
+    runner.getExecutionThread().interrupt();
   }
 
   public int getAttempts() {
-    return 50;
+    return 75;
   }
 
   public int getStep() {
-    return 20;
+    return 10;
   }
 
 

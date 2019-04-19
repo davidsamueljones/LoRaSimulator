@@ -15,7 +15,7 @@ import ecs.soton.dsj1n15.smesh.model.presets.DataBroadcastTest;
 import ecs.soton.dsj1n15.smesh.model.presets.LargeDataBroadcastTest;
 import ecs.soton.dsj1n15.smesh.model.presets.NineNodeLine;
 import ecs.soton.dsj1n15.smesh.model.presets.Preset;
-import ecs.soton.dsj1n15.smesh.model.presets.TwoNodeNO;
+import ecs.soton.dsj1n15.smesh.model.presets.TwoNode;
 import java.awt.GridBagLayout;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
@@ -30,6 +30,12 @@ import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.JCheckBox;
 
+/**
+ * Control panel for the GUI, also handles a lot of the starting and configuring of the model
+ * runner.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public class SimulatorControlPanel extends JScrollPane {
   private static final long serialVersionUID = -6615562230893271240L;
 
@@ -38,8 +44,6 @@ public class SimulatorControlPanel extends JScrollPane {
   private static String NAIVE_PROTOCOL_10P_NO_CAD_NAME = "Naive Broadcast (10% NC)";
   private static String ADAPTIVE_PROTOCOL_NAME = "Adaptive Broadcast";
   private static String EVENTS_ONLY = "Preset Events";
-
-  private final Map<String, Preset> presets = new LinkedHashMap<>();
 
   private JTextField txtTime;
 
@@ -65,7 +69,13 @@ public class SimulatorControlPanel extends JScrollPane {
   private JPanel pnlProtocolExport;
   private JButton btnDumpActivity;
   private JButton btnDumpReceiveStats;
-  private JCheckBox chkUpdateView;
+  private JCheckBox chkWaitForView;
+
+  /** The list of presets */
+  private final Map<String, Preset> presets = new LinkedHashMap<>();
+
+  /** The currently loaded protocol */
+  private Protocol protocol = null;
 
   /**
    * Create the panel.
@@ -87,13 +97,14 @@ public class SimulatorControlPanel extends JScrollPane {
     loadProtocols();
     loadEnvironment();
 
+    // Fix for scroll bar behaviour
     SwingUtilities.invokeLater(new Runnable() {
       @Override
       public void run() {
         setMinimumSize(new Dimension(getPreferredSize().width, 0));
       }
     });
-
+    // Load initial settings
     SwingUtilities.invokeLater(new Runnable() {
       @Override
       public void run() {
@@ -352,13 +363,13 @@ public class SimulatorControlPanel extends JScrollPane {
     gbc_chkAntiAlias.gridy = 2;
     pnlViewSettings.add(chkAntiAlias, gbc_chkAntiAlias);
 
-    chkUpdateView = new JCheckBox("Auto View Update");
-    chkUpdateView.setSelected(viewUpdater.isEnabled());
+    chkWaitForView = new JCheckBox("Wait for View");
+    chkWaitForView.setSelected(viewUpdater.isWaitForUpdate());
     GridBagConstraints gbc_chkUpdateView = new GridBagConstraints();
     gbc_chkUpdateView.anchor = GridBagConstraints.WEST;
     gbc_chkUpdateView.gridx = 0;
     gbc_chkUpdateView.gridy = 3;
-    pnlViewSettings.add(chkUpdateView, gbc_chkUpdateView);
+    pnlViewSettings.add(chkWaitForView, gbc_chkUpdateView);
   }
 
   /**
@@ -422,8 +433,8 @@ public class SimulatorControlPanel extends JScrollPane {
       pnlView.getEnvironmentDrawer().setAntiAliasEnable(chkAntiAlias.isSelected());
       pnlView.repaint();
     });
-    chkUpdateView.addActionListener(x -> {
-      viewUpdater.setEnabled(chkUpdateView.isSelected());
+    chkWaitForView.addActionListener(x -> {
+      viewUpdater.setWaitForUpdate(chkWaitForView.isSelected());
       pnlView.repaint();
     });
 
@@ -440,12 +451,16 @@ public class SimulatorControlPanel extends JScrollPane {
    * Load all presets into selection box.
    */
   private void loadPresets() {
+    addPreset("500m Space Broadcast", new LargeDataBroadcastTest(6, 5, 500, true));
+    addPreset("100m Space Broadcast", new LargeDataBroadcastTest(6, 5, 100, true));
+    addPreset("2N NO 100m", new TwoNode(100, LoRaCfg.getDataRate0()));
     addPreset("9N NO Line", new NineNodeLine());
-    addPreset("2N NO 100m", new TwoNodeNO(100, LoRaCfg.getDataRate0()));
     addPreset("Broadcast Test", new DataBroadcastTest());
-    addPreset("Large Broadcast Test", new LargeDataBroadcastTest(6, 5, 100, true));
   }
 
+  /**
+   * Load all protocols into selection box.
+   */
   private void loadProtocols() {
     cboProtocol.addItem(NAIVE_PROTOCOL_1P_NAME);
     cboProtocol.addItem(NAIVE_PROTOCOL_10P_NAME);
@@ -453,8 +468,6 @@ public class SimulatorControlPanel extends JScrollPane {
     cboProtocol.addItem(ADAPTIVE_PROTOCOL_NAME);
     cboProtocol.addItem(EVENTS_ONLY);
   }
-
-  private Protocol protocol = null;
 
   /**
    * Add a preset to the preset list.
@@ -471,13 +484,19 @@ public class SimulatorControlPanel extends JScrollPane {
     }
   }
 
-  private void loadPreset(String id, String strProtocol) {
-    if (strProtocol == null || id == null) {
+  /**
+   * Load the selected preset, enabling a protocol if one is selected.
+   * 
+   * @param strPreset String id of preset to load
+   * @param strProtocol String id of protocol to load
+   */
+  private void loadPreset(String strPreset, String strProtocol) {
+    if (strProtocol == null || strPreset == null) {
       return;
     }
 
     Cloner cloner = new Cloner();
-    Preset preset = cloner.deepClone(presets.get(id));
+    Preset preset = cloner.deepClone(presets.get(strPreset));
     // Regenerate the preset in case it has any random effects
     preset.generate();
 
@@ -506,7 +525,7 @@ public class SimulatorControlPanel extends JScrollPane {
   }
 
   /**
-   * Load the model.
+   * Load the current model settings into the controls.
    */
   public void loadEnvironment() {
     long time = 0;
@@ -539,26 +558,35 @@ public class SimulatorControlPanel extends JScrollPane {
     }
   }
 
+  /**
+   * Listener to attach to the environment runner for refreshing the GUI every tick. Optionally can
+   * delay the runner until the view has updated, note that this will massively slow down
+   * simulations.
+   * 
+   * @author David Jones (dsj1n15)
+   */
   class ViewUpdater implements EnvironmentRunnerListener {
-    private boolean enabled = true;
     private boolean waitForUpdate = false;
 
-    public boolean isEnabled() {
-      return enabled;
+    /**
+     * @return Whether the listener will wait for the view to finish updating
+     */
+    public boolean isWaitForUpdate() {
+      return waitForUpdate;
     }
 
-    public void setEnabled(boolean enabled) {
-      this.enabled = enabled;
+    /**
+     * @param waitForUpdate Whether the listener should wait for view to finish updating
+     */
+    public void setWaitForUpdate(boolean waitForUpdate) {
+      this.waitForUpdate = waitForUpdate;
     }
 
     @Override
     public void update() {
-      if (!enabled) {
-        return;
-      }
       pnlView.setUpdateNeeded();
       pnlView.repaint();
-      // Wait until repaint has occurred on other thread
+      // Wait until repaint has occurred on other thread (if enabled)
       while (waitForUpdate && !pnlView.isUpToDate()) {
         try {
           Thread.sleep(1);

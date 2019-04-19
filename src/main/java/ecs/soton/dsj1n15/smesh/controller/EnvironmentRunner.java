@@ -8,16 +8,21 @@ import java.util.Map.Entry;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import ecs.soton.dsj1n15.smesh.radio.Radio;
 
+/**
+ * Environment runner for executing simulation on a separate thread with incremental tick behaviour.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public class EnvironmentRunner {
   /** The currently loaded environment */
   private Environment environment = null;
-
+  /** Thread simulation is being executed on */
   private final Thread runner;
 
   /** Whether the environment is running */
   private volatile boolean running = false;
   /** The number of units left to run if not running */
-  private volatile int unitsToRun = 0;
+  private volatile long unitsToRun = 0;
   /** The amount of time each unit represents */
   private volatile int timeUnit = 5;
 
@@ -77,7 +82,7 @@ public class EnvironmentRunner {
   public Thread getExecutionThread() {
     return runner;
   }
-  
+
   /**
    * @return The environment that is being run
    */
@@ -156,7 +161,7 @@ public class EnvironmentRunner {
   /**
    * @return The number of units still to run
    */
-  public int getUnitsToRun() {
+  public long getUnitsToRun() {
     return unitsToRun;
   }
 
@@ -170,7 +175,7 @@ public class EnvironmentRunner {
   /**
    * @param unitsToRun Add units to run
    */
-  public void addUnitsToRun(int unitsToRun) {
+  public void addUnitsToRun(long unitsToRun) {
     this.unitsToRun += unitsToRun;
   }
 

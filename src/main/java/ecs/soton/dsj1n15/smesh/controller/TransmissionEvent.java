@@ -3,6 +3,11 @@ package ecs.soton.dsj1n15.smesh.controller;
 import ecs.soton.dsj1n15.smesh.radio.Packet;
 import ecs.soton.dsj1n15.smesh.radio.Radio;
 
+/**
+ * Transmission Event that can be scheduled by an EnvironmentRunner.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public class TransmissionEvent implements Event {
 
   private final Radio radio;

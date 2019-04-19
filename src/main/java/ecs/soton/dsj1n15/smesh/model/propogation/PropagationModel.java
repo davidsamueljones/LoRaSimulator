@@ -1,5 +1,10 @@
 package ecs.soton.dsj1n15.smesh.model.propogation;
 
+/**
+ * Generic propagation model class.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public abstract class PropagationModel {
 
   /**

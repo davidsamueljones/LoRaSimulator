@@ -12,6 +12,12 @@ import math.geom2d.line.LineSegment2D;
 import math.geom2d.polygon.Polygon2D;
 import math.geom2d.polygon.SimplePolygon2D;
 
+/**
+ * Generic object that can be placed in an environment. Has a shape for LOS collision calculations,
+ * an extra propagation model, and an AWT 'look' for displaying it.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public abstract class EnvironmentObject {
 
   protected Color fillColor = null;

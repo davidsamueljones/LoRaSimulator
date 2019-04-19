@@ -19,6 +19,12 @@ import ecs.soton.dsj1n15.smesh.radio.Radio;
 import math.geom2d.Point2D;
 import math.geom2d.conic.Circle2D;
 
+/**
+ * View for holding an environment drawer, can handle user interaction for zooming, panning and node
+ * moving.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public class SimulatorViewPanel extends JPanel
     implements MouseListener, MouseMotionListener, MouseWheelListener {
   private static final long serialVersionUID = 5109577978956951077L;
@@ -29,9 +35,13 @@ public class SimulatorViewPanel extends JPanel
   /** Drawing object being used to display environment */
   private EnvironmentDrawer environmentDrawer;
 
+  /** The last position the mouse was at */
   private Point lastPos = null;
-  private Radio nodeAtPress = null;
 
+  /** The current node selected by the user */
+  private Radio selectedNode = null;
+
+  /** Whether the view has finished updating since it was told the model has changed */
   private volatile boolean upToDate;
 
   /**
@@ -91,8 +101,14 @@ public class SimulatorViewPanel extends JPanel
   public void setUpdateNeeded() {
     this.upToDate = false;
   }
- 
 
+
+  /**
+   * Move the node.
+   * 
+   * @param node Node to move
+   * @param e New position to move it to, applied as a shift
+   */
   private void moveNode(Radio node, MouseEvent e) {
     if (lastPos != null) {
       Point mouse = getPointOnView(e.getPoint());
@@ -104,6 +120,11 @@ public class SimulatorViewPanel extends JPanel
     lastPos = e.getPoint();
   }
 
+  /**
+   * Shift the view by panning.
+   * 
+   * @param e New mouse position
+   */
   private void shiftView(MouseEvent e) {
     if (lastPos != null) {
       int difX = (int) (-(e.getX() - lastPos.x) * environmentDrawer.getScale());
@@ -116,6 +137,12 @@ public class SimulatorViewPanel extends JPanel
     lastPos = e.getPoint();
   }
 
+  /**
+   * Find the node under the mouse position.
+   * 
+   * @param e Mouse position
+   * @return The node under the mouse
+   */
   private Radio findNode(MouseEvent e) {
     Point2D p = new Point2D(getPointOnView(e.getPoint()));
     Map<Radio, Circle2D> nodeShapes = environmentDrawer.getNodeShapes();
@@ -127,10 +154,22 @@ public class SimulatorViewPanel extends JPanel
     return null;
   }
 
+  /**
+   * Change the current position in the environment drawer.
+   * 
+   * @param e New position
+   */
   private void updateCurPos(MouseEvent e) {
     environmentDrawer.setCurPos(getMouseCoordinate(e));
   }
 
+  /**
+   * Zoom the view in on the mouse position like typical mapping software by shifting the view after
+   * zoom.
+   * 
+   * @param point Point to zoom around
+   * @param rotation How many points of zoom should occur
+   */
   private void zoomView(Point point, int rotation) {
     int curSize = environmentDrawer.getGridSize();
     int modSize = curSize + rotation;
@@ -149,10 +188,22 @@ public class SimulatorViewPanel extends JPanel
     }
   }
 
+  /**
+   * Convert a mouse position to the corresponding environment coordinate.
+   * 
+   * @param e Mouse event
+   * @return Coordinate in environment
+   */
   private Point2D getMouseCoordinate(MouseEvent e) {
     return environmentDrawer.getCoordinate(getPointOnView(e.getPoint()));
   }
 
+  /**
+   * Convert a general mouse position into a position on the view.
+   * 
+   * @param p Mouse position
+   * @return Position on view
+   */
   private Point getPointOnView(Point p) {
     Rectangle r = EnvironmentDrawer.getViewSpace(this.getSize());
     return new Point(p.x - r.x, p.y - r.y);
@@ -161,13 +212,15 @@ public class SimulatorViewPanel extends JPanel
   @Override
   public void mousePressed(MouseEvent e) {
     lastPos = e.getPoint();
-    nodeAtPress = findNode(e);
+    selectedNode = findNode(e);
   }
 
   @Override
   public void mouseDragged(MouseEvent e) {
-    if (nodeAtPress != null && nodeAtPress.equals(environmentDrawer.getSelectedNode())) {
-      moveNode(nodeAtPress, e);
+    if (selectedNode != null && selectedNode.equals(environmentDrawer.getSelectedNode())) {
+      // Move the selected node
+      moveNode(selectedNode, e);
+      // If no node selected pan the view
     } else {
       shiftView(e);
     }
@@ -188,6 +241,7 @@ public class SimulatorViewPanel extends JPanel
 
   @Override
   public void mouseClicked(MouseEvent e) {
+    // Select a node if one is underneath
     Radio node = findNode(e);
     environmentDrawer.setSelectedNode(node);
     repaint();
@@ -195,12 +249,13 @@ public class SimulatorViewPanel extends JPanel
 
   @Override
   public void mouseReleased(MouseEvent e) {
-    nodeAtPress = null;
+    selectedNode = null;
     lastPos = null;
   }
 
   @Override
   public void mouseWheelMoved(MouseWheelEvent e) {
+    // Zoom the view
     int rotation = e.getWheelRotation();
     updateCurPos(e);
     zoomView(e.getPoint(), rotation);

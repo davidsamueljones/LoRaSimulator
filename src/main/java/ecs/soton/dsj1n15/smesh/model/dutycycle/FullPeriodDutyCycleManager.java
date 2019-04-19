@@ -6,6 +6,12 @@ import java.util.List;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
+/**
+ * Duty cycle manager for calculating the allowed airtime over the full duty cycle interval. Allows
+ * for sequential transmissions and more advanced behaviour over SingleTransmissionDutyCycleManager.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public class FullPeriodDutyCycleManager extends DutyCycleManager {
   private int dutyCyclePeriod;
 
@@ -67,7 +73,7 @@ public class FullPeriodDutyCycleManager extends DutyCycleManager {
   }
 
   /**
-   * Determine rgw amount of airtime that has been used in the past period.
+   * Determine the amount of airtime that has been used in the past period.
    * 
    * @param time The current time in ms to index from
    * @return The amount of airtime in the period
@@ -90,12 +96,16 @@ public class FullPeriodDutyCycleManager extends DutyCycleManager {
     return totalAirtime;
   }
 
+  /**
+   * @return The amount of allowed airtime for the configured period
+   */
   private int getPeriodAirtime() {
     return (int) (dutyCyclePeriod * dutyCycle);
   }
 
   /**
-   * Clear any transmissions from the log that will no longer effect duty cycle calculations.
+   * Clear any transmissions from the log that will no longer effect duty cycle calculations (those
+   * outside the interval).
    * 
    * @param time The current time in ms
    */

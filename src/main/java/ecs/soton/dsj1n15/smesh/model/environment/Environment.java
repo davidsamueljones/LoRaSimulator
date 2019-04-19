@@ -4,12 +4,20 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import ecs.soton.dsj1n15.smesh.lib.Utilities;
+import ecs.soton.dsj1n15.smesh.model.propogation.EmpiricalFreeSpacePropogationModel;
+import ecs.soton.dsj1n15.smesh.model.propogation.FreeSpacePropagationModel;
 import ecs.soton.dsj1n15.smesh.model.propogation.PlainEarthPropagationModel;
 import ecs.soton.dsj1n15.smesh.model.propogation.PropagationModel;
 import ecs.soton.dsj1n15.smesh.radio.Radio;
 import ecs.soton.dsj1n15.smesh.radio.Transmission;
 import math.geom2d.line.Line2D;
 
+/**
+ * The main modelling class that holds all radios (nodes), all obstructions (e.g. trees), and models
+ * the propagation channel for transmissions. Also holds time reference for all held objects.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public class Environment {
 
   /** A list of objects in the environment */
@@ -20,6 +28,20 @@ public class Environment {
 
   /** The current time in the environment */
   private long time;
+
+  /** The free space model used by the environment */
+  public final FreeSpaceModelType fsmType;
+
+
+  /**
+   * Create an environment with the specified free space model.
+   * 
+   * @param fsmType Free space model type
+   */
+  public Environment(FreeSpaceModelType fsmType) {
+    this.fsmType = fsmType;
+  }
+
 
   /**
    * @return Reference to object
@@ -99,11 +121,11 @@ public class Environment {
   }
 
   /**
-   * Calculate the path loss after passing through objects in the environment. Averages two calls of
-   * {@link #getPathLoss(Radio tx, Radio rx)} with the input order reversed. This creates a value
-   * that is the average of path loss from transmitter to receiver and from receiver to transmitter.
-   * so that the value will be the same in both directions. This is not necessarily realistic but
-   * avoids unrealistic path differences.
+   * Calculate the path loss after passing through objects in the environment. Gets the maximum of
+   * two calls of {@link #getPathLoss(Radio tx, Radio rx)} with the input order reversed. This
+   * creates a value that is approximately the worst case scenario and causes the value to be the
+   * same in both directions. This is not necessarily realistic but avoids unrealistic path
+   * differences.
    * 
    * @param tx A radio
    * @param rx A radio
@@ -112,7 +134,7 @@ public class Environment {
   public double getAveragedPathLoss(Radio tx, Radio rx) {
     double a = getPathLoss(tx, rx);
     double b = getPathLoss(rx, tx);
-    return Math.min(a, b);
+    return Math.max(a, b);
   }
 
   /**
@@ -126,11 +148,23 @@ public class Environment {
   public double getPathLoss(Radio tx, Radio rx) {
     // Calculate the line of sight between transmitter and receive
     Line2D los = new Line2D(tx.getXY(), rx.getXY());
-    // Get the loss in free space
-    PropagationModel freeSpaceModel = // new FreeSpacePropagationModel(rx.getFrequency());
-        new PlainEarthPropagationModel(rx.getAntennaHeight(), tx.getAntennaHeight());
+    // Get the loss in free space using the environments model type
+    PropagationModel freeSpaceModel;
+    switch (fsmType) {
+      case EFSPL:
+        freeSpaceModel = new EmpiricalFreeSpacePropogationModel();
+        break;
+      case FSPL:
+        freeSpaceModel = new FreeSpacePropagationModel(rx.getFrequency());;
+        break;
+      case PE:
+        freeSpaceModel =
+            new PlainEarthPropagationModel(rx.getAntennaHeight(), tx.getAntennaHeight());
+        break;
+      default:
+        throw new IllegalStateException("Unsupported free space model type");
+    }
     double loss = freeSpaceModel.getPathLoss(los.length());
-
     // Add propagation effects of environmental objects
     for (EnvironmentObject object : objects) {
       loss += object.getLOSPathLoss(tx, rx);
@@ -165,7 +199,7 @@ public class Environment {
   }
 
   /**
-   * Get the node with the corresponding ID. 
+   * Get the node with the corresponding ID.
    * 
    * @param id ID of the node
    * @return Corresponding node
@@ -178,7 +212,7 @@ public class Environment {
     }
     return null;
   }
-  
+
   /**
    * Remove node from the environment, unsetting radios environment object automatically.
    * 
@@ -224,6 +258,15 @@ public class Environment {
    */
   public void addTime(long time) {
     this.time += time;
+  }
+
+  /**
+   * Types to use for free space modelling in the environment.
+   * 
+   * @author David Jones (dsj1n15)
+   */
+  public enum FreeSpaceModelType {
+    FSPL, PE, EFSPL
   }
 
 }

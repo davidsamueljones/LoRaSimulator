@@ -8,8 +8,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Map.Entry;
 import ecs.soton.dsj1n15.smesh.lib.Utilities;
-import ecs.soton.dsj1n15.smesh.radio.Radio;
-import ecs.soton.dsj1n15.smesh.radio.Transmission;
 
 public abstract class Protocol {
   /** Random object to use for all randomness */

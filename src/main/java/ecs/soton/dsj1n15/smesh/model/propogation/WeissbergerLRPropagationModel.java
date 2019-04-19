@@ -1,10 +1,10 @@
 package ecs.soton.dsj1n15.smesh.model.propogation;
 
 /**
- * VALID UP TO 400m
+ * Weissberger propagation model for in-forest transmissions.<br>
+ * Valid for up to 400m.
  * 
- * @author davidjones
- *
+ * @author David Jones (dsj1n15)
  */
 public class WeissbergerLRPropagationModel extends PropagationModel {
 

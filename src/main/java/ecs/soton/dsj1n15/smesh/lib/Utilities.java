@@ -2,6 +2,11 @@ package ecs.soton.dsj1n15.smesh.lib;
 
 import java.util.Random;
 
+/**
+ * Collection of extraneous utilities for whole project.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public class Utilities {
   public static Random RANDOM = new Random(0);
   

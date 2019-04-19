@@ -10,6 +10,12 @@ import math.geom2d.Point2D;
 import math.geom2d.line.Line2D;
 import math.geom2d.polygon.Polygon2D;
 
+/**
+ * Forest object to place in environment. Uses the ITU-R model with the density provided acting as
+ * an empirical multiplier. Can be any 2D shape.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public class Forest extends EnvironmentObject {
 
   private Polygon2D shape;
@@ -48,6 +54,10 @@ public class Forest extends EnvironmentObject {
     return getIntersects(shape, line);
   }
 
+  /**
+   * {@inheritDoc} <br>
+   * Uses the ITU-R model with the density empirical modifier for propagation.
+   */
   @Override
   public double getLOSPathLoss(Radio tx, Radio rx) {
     if (tx.getFrequency() != rx.getFrequency()) {

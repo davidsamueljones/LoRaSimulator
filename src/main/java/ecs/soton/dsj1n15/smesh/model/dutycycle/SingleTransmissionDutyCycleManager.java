@@ -1,5 +1,11 @@
 package ecs.soton.dsj1n15.smesh.model.dutycycle;
 
+/**
+ * Duty cycle manager that follows LoRaWAN's method of having a period of silence after each
+ * transmission.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public class SingleTransmissionDutyCycleManager extends DutyCycleManager {
   private long nextTransmitTime = 0;
 
@@ -35,7 +41,7 @@ public class SingleTransmissionDutyCycleManager extends DutyCycleManager {
   public boolean canTransmit(long time, int airtime) {
     return time >= whenCanTransmit(time, airtime);
   }
-  
+
   @Override
   public long whenCanTransmit(long time, int airtime) {
     if (getAvailableTransmitTime(time) > airtime) {

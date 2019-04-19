@@ -1,5 +1,11 @@
 package ecs.soton.dsj1n15.smesh.model.dutycycle;
 
+/**
+ * Generic duty cycle manager for a single band. <br>
+ * Provides methods for checking if a transmission is valid or finding times when it would be.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public abstract class DutyCycleManager {
   protected final double dutyCycle;
 
@@ -28,7 +34,7 @@ public abstract class DutyCycleManager {
    * @return Whether the packet can be transmitted legally
    */
   public abstract boolean canTransmit(long time, int airtime);
-  
+
   /**
    * Determine a time when a packet can be transmitted legally.
    *

@@ -3,12 +3,15 @@ package ecs.soton.dsj1n15.smesh.view;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.util.EventListener;
 import javax.swing.JFrame;
 import javax.swing.border.BevelBorder;
 import ecs.soton.dsj1n15.smesh.controller.EnvironmentRunner;
-import ecs.soton.dsj1n15.smesh.controller.EnvironmentRunnerListener;
 
+/**
+ * Main frame for the managing the GUI overlay.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public class SimulatorFrame extends JFrame {
   private static final long serialVersionUID = 8915866815288848109L;
 
@@ -16,7 +19,6 @@ public class SimulatorFrame extends JFrame {
 
   private SimulatorViewPanel pnlView;
   private SimulatorControlPanel pnlControls;
-  boolean viewUpToDate = false;
 
   /**
    * Create the frame.

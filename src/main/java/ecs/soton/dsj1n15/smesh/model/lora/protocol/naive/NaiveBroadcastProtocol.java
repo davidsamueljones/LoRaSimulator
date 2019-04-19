@@ -16,7 +16,6 @@ import ecs.soton.dsj1n15.smesh.model.lora.protocol.ProtocolTickListener;
 import ecs.soton.dsj1n15.smesh.radio.Packet;
 import ecs.soton.dsj1n15.smesh.radio.Radio;
 import ecs.soton.dsj1n15.smesh.radio.ReceiveResult;
-import ecs.soton.dsj1n15.smesh.radio.TickListener;
 import ecs.soton.dsj1n15.smesh.radio.Transmission;
 import ecs.soton.dsj1n15.smesh.radio.ReceiveResult.Status;
 
@@ -80,7 +79,8 @@ public class NaiveBroadcastProtocol extends Protocol {
     /** The next time to attempt a transmit */
     protected long nextTransmit;
 
-
+    Map<Radio, Boolean> targets = new HashMap<>();
+    
     /**
      * Create a tick listener for controlling the protocol behaviour on the radio.
      * 
@@ -175,8 +175,19 @@ public class NaiveBroadcastProtocol extends Protocol {
           environment.getTime(), radio.getID()));
       dcm.transmit(environment.getTime(), airtime);
       radio.send(packet);
+      trackSend();
+    }
+    
+    protected void trackSend() {
       currentTransmit = radio.getCurrentTransmission();
-
+      // Determine who this message is actually trying to reach using metadata
+      for (Radio target : environment.getNodes()) {
+        if (target == this.radio) {
+          continue;
+        }
+        boolean wanted = isTransmissionWanted(target, currentTransmit);
+        targets.put(target, wanted);
+      }
     }
 
     protected void attemptSendWithCAD() {
@@ -217,7 +228,7 @@ public class NaiveBroadcastProtocol extends Protocol {
             environment.getTime(), radio.getID()));
         dcm.transmit(environment.getTime(), airtime);
         radio.send(packet);
-        currentTransmit = radio.getCurrentTransmission();
+        trackSend();
       }
     }
 
