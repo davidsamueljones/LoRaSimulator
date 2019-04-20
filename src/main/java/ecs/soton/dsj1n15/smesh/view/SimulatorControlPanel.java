@@ -23,6 +23,9 @@ import java.awt.GridBagLayout;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.Insets;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.swing.JComboBox;
@@ -70,7 +73,7 @@ public class SimulatorControlPanel extends JScrollPane {
   private JLabel lblProtocol;
   private JComboBox<String> cboProtocol;
   private JPanel pnlProtocolExport;
-  private JButton btnDumpActivity;
+  private JButton btnDumpTransmissionStats;
   private JButton btnDumpReceiveStats;
   private JCheckBox chkWaitForView;
 
@@ -78,7 +81,8 @@ public class SimulatorControlPanel extends JScrollPane {
   private final Map<String, Preset> presets = new LinkedHashMap<>();
 
   /** The currently loaded protocol */
-  private Protocol protocol = null;
+  private Protocol<?> protocol = null;
+  private JCheckBox chkFilterWanted;
 
   /**
    * Create the panel.
@@ -303,24 +307,34 @@ public class SimulatorControlPanel extends JScrollPane {
     pnlProtocol.add(pnlProtocolExport, gbc_pnlProtocolExport);
     GridBagLayout gbl_pnlProtocolExport = new GridBagLayout();
     gbl_pnlProtocolExport.columnWidths = new int[] {0, 0, 0, 0, 0};
-    gbl_pnlProtocolExport.rowHeights = new int[] {0};
+    gbl_pnlProtocolExport.rowHeights = new int[] {0, 0};
     gbl_pnlProtocolExport.columnWeights = new double[] {1.0, 0.0, 0.0, 1.0};
-    gbl_pnlProtocolExport.rowWeights = new double[] {0.0};
+    gbl_pnlProtocolExport.rowWeights = new double[] {0.0, 0.0};
     pnlProtocolExport.setLayout(gbl_pnlProtocolExport);
 
-    btnDumpActivity = new JButton("Activity");
-    GridBagConstraints gbc_btnDumpActivity = new GridBagConstraints();
-    gbc_btnDumpActivity.insets = new Insets(0, 0, 0, 5);
-    gbc_btnDumpActivity.gridx = 1;
-    gbc_btnDumpActivity.gridy = 0;
-    pnlProtocolExport.add(btnDumpActivity, gbc_btnDumpActivity);
+    btnDumpTransmissionStats = new JButton("Transmission Stats");
+    GridBagConstraints gbc_btnDumpTransmissionStats = new GridBagConstraints();
+    gbc_btnDumpTransmissionStats.insets = new Insets(0, 0, 5, 5);
+    gbc_btnDumpTransmissionStats.gridx = 1;
+    gbc_btnDumpTransmissionStats.gridy = 0;
+    pnlProtocolExport.add(btnDumpTransmissionStats, gbc_btnDumpTransmissionStats);
 
-    btnDumpReceiveStats = new JButton("Receive Stats");
+    btnDumpReceiveStats = new JButton("Node Stats");
     GridBagConstraints gbc_btnDumpReceiveStats = new GridBagConstraints();
-    gbc_btnDumpReceiveStats.insets = new Insets(0, 0, 0, 0);
+    gbc_btnDumpReceiveStats.insets = new Insets(0, 0, 5, 5);
     gbc_btnDumpReceiveStats.gridx = 2;
     gbc_btnDumpReceiveStats.gridy = 0;
     pnlProtocolExport.add(btnDumpReceiveStats, gbc_btnDumpReceiveStats);
+
+    chkFilterWanted = new JCheckBox("Filter Wanted");
+    chkFilterWanted.setSelected(true);
+    GridBagConstraints gbc_chkFilterWanted = new GridBagConstraints();
+    gbc_chkFilterWanted.anchor = GridBagConstraints.WEST;
+    gbc_chkFilterWanted.gridwidth = 2;
+    gbc_chkFilterWanted.insets = new Insets(0, 0, 0, 5);
+    gbc_chkFilterWanted.gridx = 1;
+    gbc_chkFilterWanted.gridy = 1;
+    pnlProtocolExport.add(chkFilterWanted, gbc_chkFilterWanted);
 
     pnlViewSettings = new JPanel();
     pnlViewSettings.setBorder(
@@ -410,14 +424,24 @@ public class SimulatorControlPanel extends JScrollPane {
       }
     });
 
-    btnDumpActivity.addActionListener(x -> {
+    btnDumpTransmissionStats.addActionListener(x -> {
       if (protocol != null) {
-        //protocol.dumpActivity();
+        File outputFile = new File("transmission_stats.csv");
+        try (PrintWriter pw = new PrintWriter(outputFile)) {
+          protocol.printTransmissionResults(pw, chkFilterWanted.isSelected());
+        } catch (FileNotFoundException e) {
+          e.printStackTrace();
+        }
       }
     });
     btnDumpReceiveStats.addActionListener(x -> {
       if (protocol != null) {
-        protocol.printResults();
+        File outputFile = new File("node_stats.csv");
+        try (PrintWriter pw = new PrintWriter(outputFile)) {
+          protocol.printNodeResults(pw, chkFilterWanted.isSelected());
+        } catch (FileNotFoundException e) {
+          e.printStackTrace();
+        }
       }
     });
 
@@ -454,7 +478,7 @@ public class SimulatorControlPanel extends JScrollPane {
    * Load all presets into selection box.
    */
   private void loadPresets() {
-    addPreset("500m Space Broadcast", new LargeDataBroadcastTest(6, 5, 500, true));
+    addPreset("400m Space Broadcast", new LargeDataBroadcastTest(6, 5, 400, true));
     addPreset("100m Space Broadcast", new LargeDataBroadcastTest(6, 5, 100, true));
     addPreset("2N NO 100m", new TwoNode(100, LoRaCfg.getDataRate0()));
     addPreset("Preamble Collision Test", new PreambleCollisionPreset());
@@ -546,7 +570,7 @@ public class SimulatorControlPanel extends JScrollPane {
       btnPlus1.setEnabled(false);
       btnPlus10.setEnabled(false);
       btnPlus100.setEnabled(false);
-      btnDumpActivity.setEnabled(false);
+      btnDumpTransmissionStats.setEnabled(false);
       btnDumpReceiveStats.setEnabled(false);
       cboProtocol.setEnabled(false);
     } else {
@@ -557,7 +581,7 @@ public class SimulatorControlPanel extends JScrollPane {
       btnPlus1.setEnabled(true);
       btnPlus10.setEnabled(true);
       btnPlus100.setEnabled(true);
-      btnDumpActivity.setEnabled(true);
+      btnDumpTransmissionStats.setEnabled(true);
       btnDumpReceiveStats.setEnabled(true);
       cboProtocol.setEnabled(true);
     }

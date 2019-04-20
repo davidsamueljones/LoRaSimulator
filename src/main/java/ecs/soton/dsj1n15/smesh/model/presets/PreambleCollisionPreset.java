@@ -1,6 +1,7 @@
 package ecs.soton.dsj1n15.smesh.model.presets;
 
 import com.rits.cloning.Cloner;
+import ecs.soton.dsj1n15.smesh.controller.MoveEvent;
 import ecs.soton.dsj1n15.smesh.controller.TransmissionEvent;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment.FreeSpaceModelType;
@@ -79,6 +80,16 @@ public class PreambleCollisionPreset extends Preset {
     addEvent(start + 55, new TransmissionEvent(node1, packet));
     packet = new Packet(128);
     addEvent(start + 0, new TransmissionEvent(node3, packet));
+
+    // Start getting powerful C during unreceivable A's important header 
+    // Should result in receive from C
+    start = 30000;
+    addEvent(start + 0, new MoveEvent(node1, -1000, 0, true));
+    packet = new Packet(128);
+    addEvent(start + 10, new TransmissionEvent(node1, packet));
+    packet = new Packet(128);
+    addEvent(start + 65, new TransmissionEvent(node3, packet));
+
 
   }
 

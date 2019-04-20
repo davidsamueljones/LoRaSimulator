@@ -10,7 +10,7 @@ import java.util.Random;
  */
 public class Utilities {
   public static Random RANDOM = new Random(0);
-  
+
   /**
    * @param mw Value in mW
    * @return Value in dBm
@@ -26,7 +26,7 @@ public class Utilities {
   public static double dbm2mw(double dbm) {
     return Math.pow(10, dbm / 10);
   }
-  
+
   /**
    * Helper function for writing to an output source and the console.
    * 
@@ -35,7 +35,9 @@ public class Utilities {
    */
   public static void printAndWrite(PrintWriter pw, String string) {
     System.out.print(string);
-    pw.write(string);
+    if (pw != null) {
+      pw.write(string);
+    }
   }
-  
+
 }

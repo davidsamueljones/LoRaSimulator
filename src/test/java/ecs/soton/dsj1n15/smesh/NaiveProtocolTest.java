@@ -49,7 +49,6 @@ public class NaiveProtocolTest {
     while (runner.isRunning()) {
       // Wait until finished
     }
-    nbp.printResults();
     runner.getExecutionThread().interrupt();
   }
   

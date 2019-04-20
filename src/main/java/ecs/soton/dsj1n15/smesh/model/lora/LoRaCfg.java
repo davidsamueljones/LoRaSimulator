@@ -25,19 +25,19 @@ public class LoRaCfg {
   /*
    * 125kHz or 250kHz (1% duty cycle) - 14dBm
    */
-  public static final double BAND_G1_C0_MHZ = 868.1f;
-  public static final double BAND_G1_C1_MHZ = 868.3f;
-  public static final double BAND_G1_C2_MHZ = 868.5f;
-  public static final double BAND_G_C3_MHZ = 867.1f;
-  public static final double BAND_G_C4_MHZ = 867.3f;
-  public static final double BAND_G_C5_MHZ = 867.5f;
-  public static final double BAND_G_C6_MHZ = 867.7f;
-  public static final double BAND_G_C7_MHZ = 867.9f;
+  public static final double BAND_G1_C0_MHZ = 868.1;
+  public static final double BAND_G1_C1_MHZ = 868.3;
+  public static final double BAND_G1_C2_MHZ = 868.5;
+  public static final double BAND_G_C3_MHZ = 867.1;
+  public static final double BAND_G_C4_MHZ = 867.3;
+  public static final double BAND_G_C5_MHZ = 867.5;
+  public static final double BAND_G_C6_MHZ = 867.7;
+  public static final double BAND_G_C7_MHZ = 867.9;
 
   /*
    * 125kHz or 250kHz (10% duty cycle) - 27dBm
    */
-  public static final double BAND_G3_MID_MHZ = 869.525f;
+  public static final double BAND_G3_MID_MHZ = 869.525;
 
   private double freq;
   private int sf;

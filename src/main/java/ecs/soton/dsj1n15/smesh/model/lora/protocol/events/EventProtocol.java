@@ -18,9 +18,7 @@ import ecs.soton.dsj1n15.smesh.radio.Radio;
  * 
  * @author David Jones (dsj1n15)
  */
-public class EventProtocol extends Protocol {
-  private final Environment environment;
-  private final Map<Radio, EventTickListener> listeners = new HashMap<>();
+public class EventProtocol extends Protocol<EventTickListener> {
 
   /**
    * Initially the environment with the naive protocol.
@@ -30,7 +28,7 @@ public class EventProtocol extends Protocol {
    * @param enableCAD Whether channel sensing should be used
    */
   public EventProtocol(Environment environment) {
-    this.environment = environment;
+    super(environment);
     init();
   }
 
@@ -45,42 +43,6 @@ public class EventProtocol extends Protocol {
         listeners.put(radio, listener);
       }
     }
-  }
-
-  @Override
-  public void printResults() {
-    for (EventTickListener listener : listeners.values()) {
-      listener.printResults();
-    }
-  }
-
-  /**
-   * Main control class for Event Protocol.
-   * 
-   * @author David Jones (dsj1n15)
-   */
-  class EventTickListener extends ProtocolTickListener {
-
-    /**
-     * Create a tick listener for controlling the protocol behaviour on the radio.
-     * 
-     * @param radio Radio to control
-     */
-    public EventTickListener(LoRaRadio radio) {
-      super(radio);
-    }
-
-    @Override
-    public void tick() {
-      // Simulation metadata gathering
-      trackTransmissions();
-
-      // Run radio tasks
-      checkForSendFinish();
-      checkForSync();
-      checkForReceive();
-    }
-
   }
 
 }

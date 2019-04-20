@@ -1,8 +1,11 @@
 package ecs.soton.dsj1n15.smesh.model.lora.protocol;
 
+import java.io.PrintWriter;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.Map.Entry;
 import ecs.soton.dsj1n15.smesh.lib.Utilities;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
@@ -32,18 +35,23 @@ public abstract class ProtocolTickListener implements TickListener {
   protected final LoRaRadio radio;
 
   /**
+   * All transmissions that have been sent by the node.
+   */
+  public final Set<Transmission> sentTransmissions = new LinkedHashSet<>();
+
+  /**
    * All transmissions that have been in the environment over all time with a mapping to whether the
    * data they contain would be wanted. Anything that is not wanted is either irrelevant or
    * overhead.
    */
-  protected final Map<Transmission, Boolean> wantedTransmissions = new HashMap<>();
+  public final Map<Transmission, Boolean> wantedTransmissions = new HashMap<>();
 
   /**
    * All transmissions that have been in the environment over all time with a mapping to their
    * corresponding receive result if it exists. If it does not exist then it can be assumed that the
    * receiver was busy whilst the transmission was ongoing.
    */
-  private final Map<Transmission, ReceiveResult> receivedData = new HashMap<>();
+  public final Map<Transmission, ReceiveResult> receivedData = new HashMap<>();
 
   /* Previous state variables for checking change between ticks */
   protected Transmission currentTransmit = null;
@@ -110,6 +118,9 @@ public abstract class ProtocolTickListener implements TickListener {
    */
   protected void trackSend() {
     currentTransmit = radio.getCurrentTransmission();
+    if (currentTransmit != null) {
+      sentTransmissions.add(currentTransmit);
+    }
   }
 
   /**
@@ -162,7 +173,7 @@ public abstract class ProtocolTickListener implements TickListener {
    */
   protected boolean checkForReceive() {
     if (lastReceive != radio.getLastReceive()) {
-      lastReceive = radio.getLastReceive();  
+      lastReceive = radio.getLastReceive();
       receivedData.put(lastReceive.transmission, lastReceive);
       if (lastReceive.isReceiverAware()) {
         boolean wanted = wantedTransmissions.get(lastReceive.transmission);
@@ -202,7 +213,8 @@ public abstract class ProtocolTickListener implements TickListener {
     return new Packet(5 + r.nextInt(250));
   }
 
-  public void printResults() {
+
+  public void printReceiveResults(PrintWriter pw, boolean filterWanted) {
     int seenWanted = 0;
     int gotWanted = 0;
     int failedMissed = 0;
@@ -213,12 +225,12 @@ public abstract class ProtocolTickListener implements TickListener {
 
     for (Entry<Transmission, Boolean> seen : wantedTransmissions.entrySet()) {
       // Ignore if transmission isn't finished
-      if(seen.getKey().endTime > environment.getTime()) {
+      if (seen.getKey().endTime > environment.getTime()) {
         continue;
       }
       // Ignore if not wanted
-      if (!seen.getValue()) {
-        //continue;
+      if (!seen.getValue() && filterWanted) {
+        continue;
       }
       // Determine if the wanted transmission was received and if not, why not
       seenWanted++;
@@ -247,18 +259,10 @@ public abstract class ProtocolTickListener implements TickListener {
         }
       }
     }
-    System.out.println(String.format("Radio %2d -  %3d/%-3d - %3.0f%% - [%3d, %3d, %3d, %3d, %3d]",
+    String str = String.format("Radio %2d -  %3d/%-3d - %3.0f%% - [%3d, %3d, %3d, %3d, %3d]\n",
         radio.getID(), gotWanted, seenWanted, gotWanted / (double) seenWanted * 100, failedMissed,
-        failedNoPreamble, failedPreambleCollision, failedPayloadCollision, failedWeakPayload));
+        failedNoPreamble, failedPreambleCollision, failedPayloadCollision, failedWeakPayload);
+    Utilities.printAndWrite(pw, str);
   }
-
-  public void printReceivedData() {
-    // System.out.println("rx,tx,wanted,success,snr,rssi");
-    // System.out.println(
-    // String.format("%d - Got (of wanted): %d/%d - %f", environment.getTime(),
-    // radio.getID(), gotWanted, seenWanted, gotWanted / (double) seenWanted));
-  }
-
-
 
 }
