@@ -10,8 +10,11 @@ import ecs.soton.dsj1n15.smesh.controller.EnvironmentRunnerListener;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
 import ecs.soton.dsj1n15.smesh.model.lora.protocol.Protocol;
 import ecs.soton.dsj1n15.smesh.model.lora.protocol.adaptive.AdaptiveBroadcastProtocol;
+import ecs.soton.dsj1n15.smesh.model.lora.protocol.events.EventProtocol;
 import ecs.soton.dsj1n15.smesh.model.lora.protocol.naive.NaiveBroadcastProtocol;
 import ecs.soton.dsj1n15.smesh.model.presets.DataBroadcastTest;
+import ecs.soton.dsj1n15.smesh.model.presets.PayloadCollisionPreset;
+import ecs.soton.dsj1n15.smesh.model.presets.PreambleCollisionPreset;
 import ecs.soton.dsj1n15.smesh.model.presets.LargeDataBroadcastTest;
 import ecs.soton.dsj1n15.smesh.model.presets.NineNodeLine;
 import ecs.soton.dsj1n15.smesh.model.presets.Preset;
@@ -409,7 +412,7 @@ public class SimulatorControlPanel extends JScrollPane {
 
     btnDumpActivity.addActionListener(x -> {
       if (protocol != null) {
-        protocol.dumpActivity();
+        //protocol.dumpActivity();
       }
     });
     btnDumpReceiveStats.addActionListener(x -> {
@@ -454,6 +457,8 @@ public class SimulatorControlPanel extends JScrollPane {
     addPreset("500m Space Broadcast", new LargeDataBroadcastTest(6, 5, 500, true));
     addPreset("100m Space Broadcast", new LargeDataBroadcastTest(6, 5, 100, true));
     addPreset("2N NO 100m", new TwoNode(100, LoRaCfg.getDataRate0()));
+    addPreset("Preamble Collision Test", new PreambleCollisionPreset());
+    addPreset("Payload Collision Test", new PayloadCollisionPreset());
     addPreset("9N NO Line", new NineNodeLine());
     addPreset("Broadcast Test", new DataBroadcastTest());
   }
@@ -506,7 +511,7 @@ public class SimulatorControlPanel extends JScrollPane {
 
     if (strProtocol.equals(EVENTS_ONLY)) {
       runner.addEvents(preset.getEvents());
-      protocol = null;
+      protocol = new EventProtocol(preset.getEnvironment());
     } else if (strProtocol.equals(NAIVE_PROTOCOL_1P_NAME)) {
       protocol = new NaiveBroadcastProtocol(preset.getEnvironment(), 0.01, true);
     } else if (strProtocol.equals(NAIVE_PROTOCOL_10P_NAME)) {

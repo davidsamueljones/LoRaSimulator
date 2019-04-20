@@ -1,31 +1,37 @@
 package ecs.soton.dsj1n15.smesh.model.lora.protocol.naive;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 import ecs.soton.dsj1n15.smesh.model.dutycycle.DutyCycleManager;
 import ecs.soton.dsj1n15.smesh.model.dutycycle.SingleTransmissionDutyCycleManager;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
+import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaRadio;
 import ecs.soton.dsj1n15.smesh.model.lora.protocol.Protocol;
 import ecs.soton.dsj1n15.smesh.model.lora.protocol.ProtocolTickListener;
 import ecs.soton.dsj1n15.smesh.radio.Packet;
 import ecs.soton.dsj1n15.smesh.radio.Radio;
-import ecs.soton.dsj1n15.smesh.radio.ReceiveResult;
-import ecs.soton.dsj1n15.smesh.radio.Transmission;
-import ecs.soton.dsj1n15.smesh.radio.ReceiveResult.Status;
 
+/**
+ * ALOHA protocol that just sends data whenever it is available. Does a bit of basic CSMA to reduce
+ * collisions where possible.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public class NaiveBroadcastProtocol extends Protocol {
   private final Environment environment;
   private final double dutyCycle;
   private final boolean enableCAD;
 
-  private final List<NaiveTickListener> listeners = new ArrayList<>();
+  private final Map<Radio, NaiveTickListener> listeners = new HashMap<>();
 
+  /**
+   * Initially the environment with the naive protocol.
+   * 
+   * @param environment The environment to initialise
+   * @param dutyCycle The duty cycle to
+   * @param enableCAD Whether channel sensing should be used
+   */
   public NaiveBroadcastProtocol(Environment environment, double dutyCycle, boolean enableCAD) {
     this.environment = environment;
     this.dutyCycle = dutyCycle;
@@ -33,16 +39,15 @@ public class NaiveBroadcastProtocol extends Protocol {
     init();
   }
 
-  /**
-   * Attach a listener to each radio to act on each radio tick.
-   */
+  @Override
   public void init() {
+    // Attach protocol listener to each radio to act on each radio tick
     for (Radio radio : environment.getNodes()) {
       if (radio instanceof LoRaRadio) {
         LoRaRadio loraRadio = (LoRaRadio) radio;
         NaiveTickListener listener = new NaiveTickListener(loraRadio);
         loraRadio.addTickListener(listener);
-        listeners.add(listener);
+        listeners.put(radio, listener);
         if (enableCAD) {
           loraRadio.getLoRaCfg().setPreambleSymbols(32);
         }
@@ -52,7 +57,7 @@ public class NaiveBroadcastProtocol extends Protocol {
 
   @Override
   public void printResults() {
-    for (NaiveTickListener listener : listeners) {
+    for (NaiveTickListener listener : listeners.values()) {
       listener.printResults();
     }
   }
@@ -63,24 +68,14 @@ public class NaiveBroadcastProtocol extends Protocol {
    * @author David Jones (dsj1n15)
    */
   class NaiveTickListener extends ProtocolTickListener {
+
     /** Single band so a single duty cycle manager */
     private final DutyCycleManager dcm;
-
-    /**
-     * All transmissions that have been in the environment over all time with a mapping to whether
-     * the data they contain would be wanted. Anything that is not wanted is either irrelevant or
-     * overhead.
-     */
-    private final Map<Transmission, Boolean> seenTransmissions = new HashMap<>();
-
-    /** The data that has actually been received by the radio */
-    private final Set<ReceiveResult> receivedData = new HashSet<>();
 
     /** The next time to attempt a transmit */
     protected long nextTransmit;
 
-    Map<Radio, Boolean> targets = new HashMap<>();
-    
+
     /**
      * Create a tick listener for controlling the protocol behaviour on the radio.
      * 
@@ -89,13 +84,12 @@ public class NaiveBroadcastProtocol extends Protocol {
     public NaiveTickListener(LoRaRadio radio) {
       super(radio);
       this.dcm = new SingleTransmissionDutyCycleManager(environment.getTime(), dutyCycle);
-      this.nextTransmit = r.nextInt(2000);
+      this.nextTransmit = (long) (radio.getID() * LoRaCfg.getSymbolTime(radio.getLoRaCfg()));
     }
 
     @Override
     public void tick() {
       // Simulation metadata gathering
-      trackActivity();
       trackTransmissions();
 
       // Run radio tasks
@@ -110,46 +104,10 @@ public class NaiveBroadcastProtocol extends Protocol {
       checkForReceive();
     }
 
-    protected void trackActivity() {
-      // Track if the node is active for activity plot
-      long curTime = environment.getTime();
-      activityMap.putIfAbsent(curTime, 0);
-      if (radio.getCurrentTransmission() != null) {
-        activityMap.put(curTime, activityMap.get(curTime) + 1);
-      }
-    }
-
-    private void trackTransmissions() {
-      // Track all transmissions and decide which ones are 'wanted' (simulator metadata for testing
-      // purposes)
-      for (Transmission transmission : environment.getTransmissions()) {
-        if (transmission.sender != this.radio)
-          if (!seenTransmissions.containsKey(transmission)) {
-            boolean wanted = isTransmissionWanted(radio, transmission);
-            seenTransmissions.put(transmission, wanted);
-          }
-      }
-    }
-
-    public void printResults() {
-      int seenWanted = 0;
-      for (Entry<Transmission, Boolean> seen : seenTransmissions.entrySet()) {
-        if (seen.getValue() == true) {
-          seenWanted++;
-        }
-      }
-      int gotWanted = 0;
-      for (ReceiveResult result : receivedData) {
-        if (result.status == Status.SUCCESS && seenTransmissions.get(result.transmission)) {
-          gotWanted++;
-        }
-      }
-      System.out.println(
-          String.format("[%8d] - Radio %d -  Got (of wanted): %d/%d - %f", environment.getTime(),
-              radio.getID(), gotWanted, seenWanted, gotWanted / (double) seenWanted));
-    }
-
-
+    /**
+     * Attempt to send a transmission. Delay to some point in the future if currently receiving
+     * something.
+     */
     protected void attemptSend() {
       // Don't attempt if send not scheduled or currently transmitting
       if (nextTransmit > environment.getTime() && radio.getCurrentTransmission() == null) {
@@ -157,7 +115,7 @@ public class NaiveBroadcastProtocol extends Protocol {
       }
       // Delay send if currently receiving
       if (radio.getSyncedSignal() != null) {
-        nextTransmit = environment.getTime() + radio.getLoRaCfg().calculatePacketAirtime(120)
+        nextTransmit = environment.getTime() + radio.getLoRaCfg().calculatePacketAirtime(128)
             + r.nextInt(10000);
         return;
       }
@@ -177,19 +135,11 @@ public class NaiveBroadcastProtocol extends Protocol {
       radio.send(packet);
       trackSend();
     }
-    
-    protected void trackSend() {
-      currentTransmit = radio.getCurrentTransmission();
-      // Determine who this message is actually trying to reach using metadata
-      for (Radio target : environment.getNodes()) {
-        if (target == this.radio) {
-          continue;
-        }
-        boolean wanted = isTransmissionWanted(target, currentTransmit);
-        targets.put(target, wanted);
-      }
-    }
 
+    /**
+     * Attempt to send a transmission whilst utilising CAD to first do carrier sensing. If now is
+     * not a good time to send, delay the transmission to a random point in the future.
+     */
     protected void attemptSendWithCAD() {
       // Don't attempt if send not scheduled, completing CAD or currently transmitting
       if (nextTransmit > environment.getTime() || radio.isCADMode()
@@ -198,7 +148,7 @@ public class NaiveBroadcastProtocol extends Protocol {
       }
       // Delay send if CAD comes back positive or currently receiving
       if (startedCAD && radio.getCADStatus() || radio.getSyncedSignal() != null) {
-        nextTransmit = environment.getTime() + radio.getLoRaCfg().calculatePacketAirtime(120)
+        nextTransmit = environment.getTime() + radio.getLoRaCfg().calculatePacketAirtime(128)
             + r.nextInt(10000);
         // Will need to do CAD again
         radio.clearCADStatus();
@@ -231,17 +181,6 @@ public class NaiveBroadcastProtocol extends Protocol {
         trackSend();
       }
     }
-
-    protected void checkForReceive() {
-      if (lastReceive != radio.getLastReceive()) {
-        lastReceive = radio.getLastReceive();
-        receivedData.add(lastReceive);
-        boolean wanted = seenTransmissions.get(lastReceive.transmission);
-        printReceive(wanted);
-      }
-    }
-
-
 
   }
 

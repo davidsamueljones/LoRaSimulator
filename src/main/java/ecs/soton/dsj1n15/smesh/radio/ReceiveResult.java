@@ -8,6 +8,8 @@ package ecs.soton.dsj1n15.smesh.radio;
 public class ReceiveResult {
   /** Status of whether the receive was successful and why */
   public final Status status;
+  /** Simulator understanding of whether the receive was successful and why */
+  public final MetadataStatus metadataStatus;
   /** The transmission being received, extract the packet from here */
   public final Transmission transmission;
   /** The time the receive occurred */
@@ -18,11 +20,19 @@ public class ReceiveResult {
   public final double rssi;
 
   /**
-   * Private constructor for creating a receive result.
+   * Create a fully defined receive result.
+   * 
+   * @param status The status as known by the receiver
+   * @param metadataStatus The underlying reason for a failed receive
+   * @param transmission The transmission being received
+   * @param time The time the receive occurred
+   * @param snr The average SNR over the full receive
+   * @param rssi The average RSSI over the full receive
    */
-  private ReceiveResult(Status status, Transmission transmission, long time, double snr,
-      double rssi) {
+  public ReceiveResult(Status status, MetadataStatus metadataStatus, Transmission transmission,
+      long time, double snr, double rssi) {
     this.status = status;
+    this.metadataStatus = metadataStatus;
     this.transmission = transmission;
     this.time = time;
     this.snr = snr;
@@ -30,51 +40,65 @@ public class ReceiveResult {
   }
 
   /**
-   * Helper function for creating a successful receive result.
+   * Create a receive result without snr and rssi values.
    * 
-   * @param transmission Transmission that was received
-   * @param time Time that receive occurred
-   * @param snr SNR of packet received
-   * @param rssi RSSI of packet received
-   * @return
+   * @param status The status as known by the receiver
+   * @param metadataStatus The underlying reason for a failed receive
+   * @param transmission The transmission being received
+   * @param time The time the receive occurred
    */
-  public static ReceiveResult getSuccessResult(Transmission transmission, long time, double snr,
-      double rssi) {
-    return new ReceiveResult(Status.SUCCESS, transmission, time, snr, rssi);
+  public ReceiveResult(Status status, MetadataStatus metadataStatus, Transmission transmission,
+      long time) {
+    this(status, metadataStatus, transmission, time, 0, 0);
+  }
+
+
+  /**
+   * @return Whether the receiver would actually be aware of the receive result.
+   */
+  public boolean isReceiverAware() {
+    return status != Status.UNAWARE_FAIL;
   }
 
   /**
-   * Helper function for creating a collision result.
-   * 
-   * @param transmission Transmission that got a collision
-   * @param time Time collision occured
-   * @return Created result
+   * @return Whether the receiver would know the SNR value
    */
-  public static ReceiveResult getCollisionResult(Transmission transmission, long time) {
-    return new ReceiveResult(Status.COLLISION, transmission, time, 0, 0);
+  public boolean isReceiverSNRValid() {
+    return status == Status.SUCCESS || status == Status.FAIL_CRC;
   }
 
   /**
-   * Helper function for creating a CRC fail result.
-   * 
-   * @param transmission Transmission that got a CRC Fail
-   * @param time Time CRC fail occurred
-   * @param snr SNR of packet that failed
-   * @param rssi RSSI of packet that failed
-   * @return Created result
+   * @return Whether the receiver would know the RSSI value
    */
-  public static ReceiveResult getCRCFailResult(Transmission transmission, long time, double snr,
-      double rssi) {
-    return new ReceiveResult(Status.CRC_FAIL, transmission, time, snr, rssi);
+  public boolean isReceiverRSSIValid() {
+    return true;
   }
 
   /**
-   * Possible receive statuses.
+   * Enumeration of possible reasons a transmission was or was not received, as known by a receiver.
    * 
    * @author David Jones (dsj1n15)
    */
   public enum Status {
-    SUCCESS, COLLISION, CRC_FAIL
+    SUCCESS, // Successful receive
+    FAIL_COLLISION, // Two competing packets at preamble stage
+    FAIL_CRC, // Some problem with the payload
+    UNAWARE_FAIL // Check metadata, receiver unaware of this receive
+  }
+
+  /**
+   * Enumeration of possible reasons a transmission was or was not received, these are a lower level
+   * than would be known by receiver.
+   * 
+   * @author David Jones (dsj1n15)
+   */
+  public enum MetadataStatus {
+    SUCCESS, // Successful receive
+    FAIL_MISSED, // Missed receive, possibly due to being busy
+    FAIL_NO_PREAMBLE, // Failed to receive preamble
+    FAIL_PREAMBLE_COLLISION, // Two competing packets at preamble stage
+    FAIL_PAYLOAD_COLLISION, // Two competing packets at payload stage (bad crc)
+    FAIL_PAYLOAD_WEAK, // Weak signal at payload stage (bad crc)
   }
 
 }

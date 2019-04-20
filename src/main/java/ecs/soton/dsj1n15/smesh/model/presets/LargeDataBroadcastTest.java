@@ -62,7 +62,7 @@ public class LargeDataBroadcastTest extends Preset {
     // Make some environmental objects
     Forest forest1 = new Forest(new Rectangle2D(-1250, -400, 700, 800), 0.4);
     environment.getEnvironmentObjects().add(forest1);
-    Forest forest2 = new Forest(new Rectangle2D(-100, 400, 1500, 300), 0.75);
+    Forest forest2 = new Forest(new Rectangle2D(-100, 400, 1500, 300), 0.55);
     environment.getEnvironmentObjects().add(forest2);
   }
 

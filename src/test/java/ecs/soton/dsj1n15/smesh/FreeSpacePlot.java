@@ -1,9 +1,13 @@
 package ecs.soton.dsj1n15.smesh;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import ecs.soton.dsj1n15.smesh.controller.EnvironmentRunner;
 import ecs.soton.dsj1n15.smesh.lib.Debugger;
 import ecs.soton.dsj1n15.smesh.lib.Utilities;
@@ -36,32 +40,37 @@ public class FreeSpacePlot {
     cfgs.add(LoRaCfg.getDataRate1());
     cfgs.add(LoRaCfg.getDataRate0());
 
-    FreeSpacePlot plot = new FreeSpacePlot();
-    System.out.println("group,distance,height,density,weather,n,sf,pl,cr,pp,snr,rssi,ps");
-    for (LoRaCfg cfg : cfgs) {
-      plot.generatePoints(cfg);
-      for (Double distance : plot.recvs.keySet()) {
-        int exp = plot.exps.get(distance);
-        int recv = plot.recvs.get(distance);
-        double snr = plot.snrs.get(distance);
-        double rssi = plot.rssis.get(distance);
-        System.out.print("free_space_test,");
-        System.out.printf("%f,", distance);
-        System.out.printf("%d,", 0);
-        System.out.printf("free_space,");
-        System.out.printf("clear,");
-        System.out.printf("%d,", exp);
-        System.out.printf("%d,", cfg.getSF());
-        System.out.printf("%d,", 120);
-        System.out.printf("%d,", cfg.getCR());
-        System.out.printf("%.3f,", recv / (double) exp);
-        System.out.printf("%.1f,", snr);
-        System.out.printf("%.1f,", rssi);
-        System.out.printf("%.1f", snr + rssi);
-        System.out.printf("\n");
+    File outputFile = new File("free_space_plot.txt");
+    try (PrintWriter pw = new PrintWriter(outputFile)) {
+      FreeSpacePlot plot = new FreeSpacePlot();
+      Utilities.printAndWrite(pw,
+          "group,distance,height,density,weather,n,sf,pl,cr,pp,snr,rssi,ps\n");
+      for (LoRaCfg cfg : cfgs) {
+        plot.generatePoints(cfg);
+        for (Double distance : plot.recvs.keySet()) {
+          int exp = plot.exps.get(distance);
+          int recv = plot.recvs.get(distance);
+          double snr = plot.snrs.get(distance);
+          double rssi = plot.rssis.get(distance);
+          Utilities.printAndWrite(pw, "free_space_test,");
+          Utilities.printAndWrite(pw, String.format("%f,", distance));
+          Utilities.printAndWrite(pw, String.format("%d,", 0));
+          Utilities.printAndWrite(pw, String.format("free_space,"));
+          Utilities.printAndWrite(pw, String.format("clear,"));
+          Utilities.printAndWrite(pw, String.format("%d,", exp));
+          Utilities.printAndWrite(pw, String.format("%d,", cfg.getSF()));
+          Utilities.printAndWrite(pw, String.format("%d,", 120));
+          Utilities.printAndWrite(pw, String.format("%d,", cfg.getCR()));
+          Utilities.printAndWrite(pw, String.format("%.3f,", recv / (double) exp));
+          Utilities.printAndWrite(pw, String.format("%.1f,", snr));
+          Utilities.printAndWrite(pw, String.format("%.1f,", rssi));
+          Utilities.printAndWrite(pw, String.format("%.1f", snr + rssi));
+          Utilities.printAndWrite(pw, String.format("\n"));
+        }
       }
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
     }
-
   }
 
   public void generatePoints(LoRaCfg cfg) {
@@ -70,7 +79,7 @@ public class FreeSpacePlot {
     snrs = new LinkedHashMap<>();
     rssis = new LinkedHashMap<>();
 
-    double distance = 30;
+    double distance = getStart();
     int step = getStep();
     // Create a runner with 5ms granularity
     EnvironmentRunner runner = new EnvironmentRunner();
@@ -122,6 +131,10 @@ public class FreeSpacePlot {
   }
 
   public int getStep() {
+    return 10;
+  }
+
+  public int getStart() {
     return 10;
   }
 

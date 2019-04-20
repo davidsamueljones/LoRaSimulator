@@ -1,39 +1,26 @@
 package ecs.soton.dsj1n15.smesh.model.lora.protocol;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.PrintWriter;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Random;
-import java.util.Map.Entry;
 import ecs.soton.dsj1n15.smesh.lib.Utilities;
 
+/**
+ * Protocol container for configuring and managing a protocol for a set of nodes.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public abstract class Protocol {
+
   /** Random object to use for all randomness */
   protected final Random r = Utilities.RANDOM;
-  
-  /** Map of how many nodes are active at each point in time */
-  protected final Map<Long, Integer> activityMap = new LinkedHashMap<>();
 
+  /**
+   * Initialise the protocol.
+   */
+  public abstract void init();
 
-  public void dumpActivity() {
-    File outputFile = new File("activity_dump.txt");
-    try (PrintWriter pw = new PrintWriter(outputFile)) {
-      printAndWrite(pw, "time,activity\n");
-      for (Entry<Long, Integer> entry : activityMap.entrySet()) {
-        printAndWrite(pw, entry.getKey() + "," + entry.getValue() + "\n");
-      }
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    }
-  }
-
-  protected void printAndWrite(PrintWriter pw, String string) {
-    System.out.print(string);
-    pw.write(string);
-  }
-
+  /**
+   * Print the results of all nodes being managed by the protocol.
+   */
   public abstract void printResults();
 
 }

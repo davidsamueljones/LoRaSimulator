@@ -23,13 +23,9 @@ public class NaiveProtocolTest {
     npt.run();
   }
 
-  public NaiveProtocolTest() {
-
-  }
-
   public void run() {
-    int unit = 10;
-    int executionTime = 10000;
+    int unit = getExecutionUnit();
+    long executionTime = getExecutionTime();
     // Create a runner with 1ms granularity
     EnvironmentRunner runner = new EnvironmentRunner();
     runner.setTimeUnit(unit);
@@ -53,10 +49,18 @@ public class NaiveProtocolTest {
     while (runner.isRunning()) {
       // Wait until finished
     }
-    nbp.dumpActivity();
     nbp.printResults();
     runner.getExecutionThread().interrupt();
   }
+  
+  public int getExecutionUnit() {
+    return 10;
+  }
+  
+  public long getExecutionTime() {
+    return 10000;
+  }
+  
 }
 
 

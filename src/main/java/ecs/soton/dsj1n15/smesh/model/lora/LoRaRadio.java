@@ -10,6 +10,8 @@ import ecs.soton.dsj1n15.smesh.radio.Packet;
 import ecs.soton.dsj1n15.smesh.radio.PartialReceive;
 import ecs.soton.dsj1n15.smesh.radio.Radio;
 import ecs.soton.dsj1n15.smesh.radio.ReceiveResult;
+import ecs.soton.dsj1n15.smesh.radio.ReceiveResult.MetadataStatus;
+import ecs.soton.dsj1n15.smesh.radio.ReceiveResult.Status;
 import ecs.soton.dsj1n15.smesh.radio.Transmission;
 
 /**
@@ -248,8 +250,6 @@ public class LoRaRadio extends Radio {
     }
   }
 
-
-
   /**
    * Find a preamble in the input stream to synchronise with. Start by finding the first 'important'
    * preamble symbol and then search ahead to see if the preamble sync is successful. If successful
@@ -282,14 +282,18 @@ public class LoRaRadio extends Radio {
       }
       // Look ahead to see if full preamble detected
       Pair<PreambleResult, Long> pr;
-      pr = preambleLookahead(detected, first.getKey());
+      pr = syncLookahead(detected, first.getKey());
+      if (pr.getLeft() != PreambleResult.NOT_COMPLETE) {
+        this.lastTime = pr.getRight();
+        lastPreambleCheck = pr.getRight();
+      }
       // Got the end of the preamble successfully, can synchronise
-      if (pr.getLeft() == PreambleResult.FOUND) {
+      if (pr.getLeft() == PreambleResult.SUCCESS) {
         gotSync = true;
         break;
       }
-      // Failed to receive preamble properly
-      if (pr.getLeft() == PreambleResult.TIMEOUT || pr.getLeft() == PreambleResult.COLLISION) {
+      // On a failure can clear up some of the old receive data
+      if (pr.getLeft() == PreambleResult.FAIL) {
         // Can forget about information up to this point as it is of no use
         // Reset the iterator so we can remove from the beginning
         itrTimeMap = timeMap.entrySet().iterator();
@@ -301,22 +305,10 @@ public class LoRaRadio extends Radio {
             cleared = true;
           }
         }
-        this.lastTime = pr.getRight();
-        lastPreambleCheck = pr.getRight();
-        // A radio knows would know if a collision occurs so alert of a failed receive
-        if (pr.getLeft() == PreambleResult.COLLISION) {
-          this.lastReceive = ReceiveResult.getCollisionResult(detected, pr.getRight());
-          alertReceiveListeners();
-        }
       }
-
     }
     // Update the sync status
-    if (gotSync) {
-      synced = detected;
-    } else {
-      synced = null;
-    }
+    synced = gotSync ? detected : null;
     return gotSync;
   }
 
@@ -330,7 +322,7 @@ public class LoRaRadio extends Radio {
    * @param startTime Time when start of preamble was found
    * @return The search result, with a time of collision or end as appropriate
    */
-  private Pair<PreambleResult, Long> preambleLookahead(Transmission target, long startTime) {
+  private Pair<PreambleResult, Long> syncLookahead(Transmission target, long startTime) {
     LoRaCfg senderCfg = ((LoRaRadio) target.sender).getLoRaCfg();
     double preambleFinish = target.startTime + senderCfg.calculatePreambleTime();
     int noSignalCount = 0;
@@ -339,6 +331,7 @@ public class LoRaRadio extends Radio {
     int wrongSignalCount = 0;
     double wrongSignalSNR = 0;
 
+    // Search ahead in the stream
     for (Entry<Long, PartialReceive> next : timeMap.entrySet()) {
       if (next.getKey() < startTime) {
         continue;
@@ -347,34 +340,42 @@ public class LoRaRadio extends Radio {
         noSignalCount++;
       } else if (next.getValue().transmission == target) {
         signalCount++;
-        signalSNR += Utilities.dbm2mw((next.getValue().snr));
+        signalSNR += Utilities.dbm2mw(next.getValue().snr);
       } else {
         wrongSignalCount++;
-        wrongSignalSNR += Utilities.dbm2mw((next.getValue().snr));
+        wrongSignalSNR += Utilities.dbm2mw(next.getValue().snr);
       }
 
-      // Check if preamble has been received
-      if (next.getKey() <= preambleFinish) {
+      // Passed end of preamble, check if preamble was found
+      if (next.getKey() >= preambleFinish) {
         int totalParts = (signalCount + wrongSignalCount + noSignalCount);
         double signalPercentage = signalCount / (double) totalParts;
         if (signalPercentage > 0.8) {
           double signalAvgSNR = Utilities.mw2dbm(signalSNR / signalCount);
+          // System.out.println(signalAvgSNR);
           if (getReceiveSuccess(signalAvgSNR)) {
-            return new ImmutablePair<>(PreambleResult.FOUND, next.getKey());
+            return new ImmutablePair<>(PreambleResult.SUCCESS, next.getKey());
           }
         } else if (wrongSignalCount >= noSignalCount) {
+          // Check for preamble collision
           double wrongSignalAvgSNR = Utilities.mw2dbm(wrongSignalSNR / wrongSignalCount);
           if (getReceiveSuccess(wrongSignalAvgSNR)) {
-            return new ImmutablePair<>(PreambleResult.COLLISION, next.getKey());
+            this.lastReceive = new ReceiveResult(Status.FAIL_COLLISION,
+                MetadataStatus.FAIL_PREAMBLE_COLLISION, target, next.getKey());
+            alertReceiveListeners();
           }
         }
-        return new ImmutablePair<>(PreambleResult.TIMEOUT, next.getKey());
+        // Failed to get preamble but no strong opposing signal so not a collision, just a missed
+        // preamble, record it as a failed receive for simulation analysis
+        this.lastReceive = new ReceiveResult(Status.UNAWARE_FAIL, MetadataStatus.FAIL_NO_PREAMBLE,
+            target, next.getKey());
+        alertReceiveListeners();
+        return new ImmutablePair<>(PreambleResult.FAIL, next.getKey());
       }
     }
+    // Reached end of search but not found end of preamble
     return new ImmutablePair<>(PreambleResult.NOT_COMPLETE, null);
   }
-
-
 
   /**
    * Attempt to receive the payload of a synchronised signal. A successful receive occurs if the
@@ -389,45 +390,63 @@ public class LoRaRadio extends Radio {
     }
     LoRaCfg senderCfg = ((LoRaRadio) synced.sender).getLoRaCfg();
     long startTime = synced.startTime + senderCfg.calculatePreambleTime();
-    int correct = 0;
-    int incorrect = 0;
-    double totalSNR = 0;
-    double totalRSSI = 0;
+    int signalCount = 0;
+    double signalSNR = 0;
+    double signalRSSI = 0;
+    int noSignalCount = 0;
+    int wrongSignalCount = 0;
+    double wrongSignalSNR = 0;
+
     Long clearTo = null;
     for (Entry<Long, PartialReceive> entry : timeMap.entrySet()) {
       long time = entry.getKey();
       if (time < startTime) {
         continue;
       }
+      // Accumulate time slices
+      if (entry.getValue() == null) {
+        noSignalCount++;
+      } else if (entry.getValue().transmission == synced) {
+        signalCount++;
+        signalSNR += Utilities.dbm2mw(entry.getValue().snr);
+        signalRSSI += Utilities.dbm2mw(entry.getValue().rssi);
+      } else {
+        wrongSignalCount++;
+        wrongSignalSNR += Utilities.dbm2mw(entry.getValue().snr);
+      }
+
       if (time > synced.endTime) {
-        int partials = correct + incorrect;
-        // Convert final mW values back to dBm
-        double avgSNR = Utilities.mw2dbm(totalSNR / partials);
-        double avgRSSI = Utilities.mw2dbm(totalRSSI / partials);
+        ReceiveResult receive = null;
+        int totalParts = (signalCount + wrongSignalCount + noSignalCount);
+        double signalPercentage = signalCount / (double) totalParts;
+        double signalAvgSNR = Utilities.mw2dbm(signalSNR / signalCount);
+        double signalAvgRSSI = Utilities.mw2dbm(signalRSSI / signalCount);
         // Determine if the number of receive errors can be fixed by coding rate
-        double maxErrors = 1 - (4 / (double) senderCfg.getCR());
-        boolean enoughData = (incorrect / (double) partials) < maxErrors;
-        boolean success = enoughData && getReceiveSuccess(avgSNR);
-        if (success) {
-          lastReceive = ReceiveResult.getSuccessResult(synced, time, avgSNR, avgRSSI);
-          Debugger.println(this.id + " Successful Receive! " + correct + " | " + incorrect);
-        } else {
-          lastReceive = ReceiveResult.getCRCFailResult(synced, time, avgSNR, avgRSSI);
-          Debugger.println("Failed Receive! " + correct + " | " + incorrect);
+        if (signalPercentage > (1 - (4 / (double) senderCfg.getCR()))) {
+          if (getReceiveSuccess(signalAvgSNR)) {
+            receive = new ReceiveResult(Status.SUCCESS, MetadataStatus.SUCCESS, synced, time,
+                signalAvgSNR, signalAvgRSSI);
+          }
+        } else if (wrongSignalCount >= noSignalCount) {
+          // Check for collision
+          double wrongSignalAvgSNR = Utilities.mw2dbm(wrongSignalSNR / wrongSignalCount);
+          if (getReceiveSuccess(wrongSignalAvgSNR)) {
+            receive = new ReceiveResult(Status.FAIL_CRC, MetadataStatus.FAIL_PAYLOAD_COLLISION,
+                synced, startTime, signalAvgSNR, signalAvgRSSI);
+          }
+        }
+        // Failed to get signal but no strong opposing signal so not a collision
+        if (receive == null) {
+          receive = new ReceiveResult(Status.FAIL_CRC, MetadataStatus.FAIL_PAYLOAD_WEAK, synced,
+              startTime, signalAvgSNR, signalAvgRSSI);
         }
         synced = null;
+        this.lastReceive = receive;
         alertReceiveListeners();
         clearTo = entry.getKey();
         break;
       }
-      // Check whether input is part of the expected stream
-      if (entry.getValue() == null || entry.getValue().transmission != synced) {
-        incorrect++;
-      } else {
-        correct++;
-        totalSNR += Utilities.dbm2mw(entry.getValue().snr);
-        totalRSSI += Utilities.dbm2mw(entry.getValue().rssi);
-      }
+
     }
     // Can clear all of receive from input stream if it has been processed
     if (clearTo != null) {
@@ -666,7 +685,7 @@ public class LoRaRadio extends Radio {
    * @author David Jones (dsj1n15)
    */
   enum PreambleResult {
-    NOT_COMPLETE, FOUND, COLLISION, TIMEOUT
+    NOT_COMPLETE, SUCCESS, FAIL
   }
 
 }
