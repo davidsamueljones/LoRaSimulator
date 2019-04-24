@@ -30,7 +30,11 @@ public class AdaptiveProtocolTest {
     apt.run(EnvironmentMode.FOREST_HALF_MIDDLE);
   }
 
-
+  /**
+   * Run the test for a single environmental configuration (the forest objects to use).
+   * 
+   * @param em Environment configuration
+   */
   public void run(EnvironmentMode em) {
     int unit = getExecutionUnit();
     long executionTime = getExecutionTime();
