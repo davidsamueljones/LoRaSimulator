@@ -2,6 +2,13 @@ package ecs.soton.dsj1n15.smesh.controller;
 
 import ecs.soton.dsj1n15.smesh.radio.Radio;
 
+
+/**
+ * Node move event that can be scheduled by an EnvironmentRunner. Behaviour can either shift or
+ * place in exact location.
+ * 
+ * @author David Jones (dsj1n15)
+ */
 public class MoveEvent implements Event {
 
   private final Radio radio;

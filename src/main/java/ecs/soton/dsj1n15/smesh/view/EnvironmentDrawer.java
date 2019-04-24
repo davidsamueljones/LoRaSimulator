@@ -42,16 +42,6 @@ public class EnvironmentDrawer {
   public static final int MIN_GRID_SIZE = 5;
   public static final int MAX_GRID_SIZE = 200;
 
-  private final Color SF12_COLOR = new Color(57, 106, 177);
-  private final Color SF11_COLOR = new Color(218, 124, 48);
-  private final Color SF10_COLOR = new Color(62, 150, 81);
-  private final Color SF09_COLOR = new Color(204, 37, 41);
-  private final Color SF08_COLOR = new Color(83, 81, 84);
-  private final Color SF07_COLOR = new Color(107, 76, 154);
-
-  private final Color RESV_COLOR_A = new Color(146, 36, 40);
-  private final Color RESV_COLOR_B = new Color(148, 139, 61);
-
   private final Color GENERIC_RADIO_COLOR = new Color(200, 200, 200);
   private final Color GRID_COLOR = Color.LIGHT_GRAY;
   private final Color GENERAL_ROUTE_COLOR = Color.BLACK;

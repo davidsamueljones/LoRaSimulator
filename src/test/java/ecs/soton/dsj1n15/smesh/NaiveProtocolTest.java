@@ -19,8 +19,8 @@ import ecs.soton.dsj1n15.smesh.view.EnvironmentDrawer;
 public class NaiveProtocolTest {
 
   /**
-   * The main method. Run the protocol for all environment modes on the configured large broadcast
-   * preset.
+   * The main method.<br>
+   * Run the naive protocol for all environment modes on the configured large broadcast preset.
    *
    * @param args Passed arguments [Program uses no arguments]
    */

@@ -15,8 +15,6 @@ import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaRadio;
 import ecs.soton.dsj1n15.smesh.model.lora.protocol.TestDataPacket;
 import ecs.soton.dsj1n15.smesh.radio.Packet;
-import ecs.soton.dsj1n15.smesh.radio.ReceiveListener;
-import ecs.soton.dsj1n15.smesh.radio.ReceiveResult;
 import ecs.soton.dsj1n15.smesh.radio.ReceiveResult.MetadataStatus;
 import ecs.soton.dsj1n15.smesh.radio.ReceiveResult.Status;
 
@@ -223,7 +221,6 @@ public class CollisionVerificationPreset extends Preset {
   }
 
   /**
-   * 
    * @return The number of ms the tick should be run for
    */
   public int getTestLength() {

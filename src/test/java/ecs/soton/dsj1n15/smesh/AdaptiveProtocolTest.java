@@ -16,7 +16,8 @@ import ecs.soton.dsj1n15.smesh.view.EnvironmentDrawer;
 public class AdaptiveProtocolTest {
 
   /**
-   * The main method.
+   * The main method.<br>
+   * Run the adaptive protocol for all environment modes on the configured large broadcast preset.
    *
    * @param args Passed arguments [Program uses no arguments]
    */
@@ -28,6 +29,7 @@ public class AdaptiveProtocolTest {
     apt.run(EnvironmentMode.FOREST_HALF_SIDE);
     apt.run(EnvironmentMode.FOREST_HALF_MIDDLE);
   }
+
 
   public void run(EnvironmentMode em) {
     int unit = getExecutionUnit();
@@ -80,34 +82,61 @@ public class AdaptiveProtocolTest {
     runner.getExecutionThread().interrupt();
   }
 
+  /**
+   * @return The granularity of the test
+   */
   public int getExecutionUnit() {
     return 10;
   }
 
+  /**
+   * @return How long to execute the test for (6 hours)
+   */
   public long getExecutionTime() {
-    return 1000 * 60 * 60 * 1;
+    return 1000 * 60 * 60 * 6;
   }
 
+  /**
+   * @return The number of radios in per horizontal
+   */
   public int getXCount() {
     return 6;
   }
 
+  /**
+   * @return The number of radios per vertical
+   */
   public int getYCount() {
     return 5;
   }
 
+  /**
+   * @return The distance between radios
+   */
   public int getSeparation() {
     return 400;
   }
 
+  /**
+   * @return Whether radios should be placed randomly
+   */
   public boolean getRandom() {
     return true;
   }
 
+  /**
+   * @return The data rate to use for the LDR band
+   */
   public int getDataRate() {
     return 1;
   }
 
+  /**
+   * Create a test output file object (csv).
+   * 
+   * @param name Name of the file to create
+   * @return A file object
+   */
   private File makeTestFile(String name) {
     return new File(name + ".csv");
   }
