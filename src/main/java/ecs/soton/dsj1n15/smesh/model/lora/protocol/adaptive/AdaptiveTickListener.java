@@ -453,7 +453,6 @@ public class AdaptiveTickListener extends ProtocolTickListener {
     long airtime = cfg.calculatePacketAirtime(dap.avgPacketLength);
     timeoutPacketReceives =
         environment.getTime() + (airtime * dap.packetCount) + dap.startDelay + 5000;
-    System.out.println(radio.getID() + " DAP TIMEOUT " + timeoutPacketReceives);
   }
 
 }
