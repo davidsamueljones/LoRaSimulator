@@ -59,7 +59,8 @@ public abstract class Protocol<T extends ProtocolTickListener> {
    * @param filterWanted Filter by only those transmissions that were defined as wanted
    */
   public void printNodeResults(PrintWriter pw, boolean filterWanted) {
-    Utilities.printAndWrite(pw, "Node Results");
+    Utilities.printAndWrite(pw, "id,wantedCount,receivedWanted,receivedUnwanted,failedMissed,"
+        + "failedNoPreamble,failedPreambleCollision,failedPayloadCollision,failedWeakPayload\n");
     for (ProtocolTickListener listener : listeners.values()) {
       listener.printReceiveResults(pw, filterWanted);
     }
@@ -84,7 +85,7 @@ public abstract class Protocol<T extends ProtocolTickListener> {
     Utilities.printAndWrite(pw,
         "sender,start,airtime,pl,cf,sf,wantedCount,receivedWanted,"
             + "receivedUnwanted,failedMissed,failedNoPreamble,failedPreambleCollision,"
-            + "failedPayloadCollision,failedWeakPayload\n");
+            + "failedPayloadCollision,failedWeakPayload,testData\n");
     for (ProtocolTickListener transmitter : listeners.values()) {
       for (Transmission transmission : transmitter.sentTransmissions) {
         // Ignore if transmission isn't finished
@@ -92,6 +93,7 @@ public abstract class Protocol<T extends ProtocolTickListener> {
           continue;
         }
         // Accumulate who has received it
+        boolean isTestData = transmission.packet instanceof TestData;
         int wantedCount = 0;
         int receivedWanted = 0;
         int receivedUnwanted = 0;
@@ -126,7 +128,9 @@ public abstract class Protocol<T extends ProtocolTickListener> {
           } else {
             switch (receive.metadataStatus) {
               case SUCCESS:
-                receivedWanted++;
+                if (wanted) {
+                  receivedWanted++;
+                }
                 break;
               case FAIL_NO_PREAMBLE:
                 failedNoPreamble++;
@@ -147,10 +151,11 @@ public abstract class Protocol<T extends ProtocolTickListener> {
         }
         LoRaRadio sender = transmitter.radio;
         LoRaCfg cfg = sender.getLoRaCfg();
-        String str = String.format("%d,%d,%d,%d,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", sender.getID(),
+        String str = String.format("%d,%d,%d,%d,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", sender.getID(),
             transmission.startTime, transmission.airtime, transmission.packet.length, cfg.getFreq(),
             cfg.getSF(), wantedCount, receivedWanted, receivedUnwanted, failedMissed,
-            failedNoPreamble, failedPreambleCollision, failedPayloadCollision, failedWeakPayload);
+            failedNoPreamble, failedPreambleCollision, failedPayloadCollision, failedWeakPayload,
+            isTestData ? 1 : 0);
         Utilities.printAndWrite(pw, str);
       }
     }

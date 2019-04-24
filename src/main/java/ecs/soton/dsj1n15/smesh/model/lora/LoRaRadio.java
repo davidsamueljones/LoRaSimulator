@@ -147,7 +147,7 @@ public class LoRaRadio extends Radio {
   }
 
   @Override
-  public int getTxPow() {
+  public double getTxPow() {
     return cfg.getTxPow();
   }
 
@@ -225,7 +225,7 @@ public class LoRaRadio extends Radio {
       // Determine SNR of signal
       double snr = environment.getReceiveSNR(transmission.sender, this);
       // Mix a bit of random noise in
-      // snr = snr + Utilities.RANDOM.nextInt(3) - 1;
+      snr = snr + Utilities.RANDOM.nextDouble() - 0.5;
       // Capture if the signal is more likely to be received than the last
       boolean better;
       int syncbonus = 3;
@@ -280,6 +280,17 @@ public class LoRaRadio extends Radio {
         // No preamble keep searching
         continue;
       }
+      // Check if the first preamble symbol is receivable
+      if (!getReceiveSuccess(first.getValue().snr)) {
+        clearReceiveMap(first.getKey());
+        itrTimeMap = timeMap.entrySet().iterator();
+        // Failed to get preamble but no strong opposing signal so not a collision, just a missed
+        // preamble, record it as a failed receive for simulation analysis
+        this.lastReceive = new ReceiveResult(Status.UNAWARE_FAIL, MetadataStatus.FAIL_NO_PREAMBLE,
+            detected, first.getKey());
+        alertReceiveListeners();
+        continue;
+      }
       // Look ahead to see if full preamble detected
       Pair<PreambleResult, Long> pr;
       pr = syncLookahead(detected, first.getKey());
@@ -295,16 +306,8 @@ public class LoRaRadio extends Radio {
       // On a failure can clear up some of the old receive data
       if (pr.getLeft() == PreambleResult.FAIL) {
         // Can forget about information up to this point as it is of no use
-        // Reset the iterator so we can remove from the beginning
+        clearReceiveMap(pr.getRight());
         itrTimeMap = timeMap.entrySet().iterator();
-        boolean cleared = false;
-        while (!cleared && itrTimeMap.hasNext()) {
-          Long nextTime = itrTimeMap.next().getKey();
-          itrTimeMap.remove();
-          if (nextTime == pr.getRight()) {
-            cleared = true;
-          }
-        }
       }
     }
     // Update the sync status
@@ -363,6 +366,7 @@ public class LoRaRadio extends Radio {
             this.lastReceive = new ReceiveResult(Status.FAIL_COLLISION,
                 MetadataStatus.FAIL_PREAMBLE_COLLISION, target, next.getKey());
             alertReceiveListeners();
+            return new ImmutablePair<>(PreambleResult.FAIL, next.getKey());
           }
         }
         // Failed to get preamble but no strong opposing signal so not a collision, just a missed
@@ -530,7 +534,7 @@ public class LoRaRadio extends Radio {
   /**
    * Clear up after a channel activity detection (CAD) finishes.
    */
-  protected void stopCAD() {
+  public void stopCAD() {
     // Can't use CAD stream for receive
     timeMap.keySet().removeIf(x -> x <= environment.getTime());
     this.cadEnabled = false;
@@ -630,11 +634,11 @@ public class LoRaRadio extends Radio {
   @Override
   public boolean canInterfere(Radio rx) {
     // Calculate receiver frequency range
-    double rxMin = rx.getFrequency() - rx.getBandwidth() / 1e6;
-    double rxMax = rx.getFrequency() + rx.getBandwidth() / 1e6;
+    double rxMin = rx.getFrequency() - rx.getBandwidth() / 2e6;
+    double rxMax = rx.getFrequency() + rx.getBandwidth() / 2e6;
     // Calculate interferer frequency range
-    double txMin = getFrequency() - getBandwidth() / 1e6;
-    double txMax = getFrequency() + getBandwidth() / 1e6;
+    double txMin = getFrequency() - getBandwidth() / 2e6;
+    double txMax = getFrequency() + getBandwidth() / 2e6;
     // If the frequencies cross at all assume interference is possible
     if (txMin <= rxMax && txMax >= rxMin) {
       // Special behaviour with other LoRa signals allows those with a different chirp rate to be
@@ -649,6 +653,23 @@ public class LoRaRadio extends Radio {
       return true;
     } else {
       return false;
+    }
+  }
+
+  /**
+   * Clear the receive map up to a certain point in time.
+   * 
+   * @param toTime Time to clear to (inclusive)
+   */
+  private void clearReceiveMap(long toTime) {
+    Iterator<Entry<Long, PartialReceive>> itrTimeMap = timeMap.entrySet().iterator();
+    boolean cleared = false;
+    while (!cleared && itrTimeMap.hasNext()) {
+      Long nextTime = itrTimeMap.next().getKey();
+      itrTimeMap.remove();
+      if (nextTime == toTime) {
+        cleared = true;
+      }
     }
   }
 

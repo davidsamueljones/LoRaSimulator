@@ -60,13 +60,10 @@ public class Forest extends EnvironmentObject {
    */
   @Override
   public double getLOSPathLoss(Radio tx, Radio rx) {
-    if (tx.getFrequency() != rx.getFrequency()) {
-      throw new IllegalArgumentException("Communicating radios are not on the same frequency");
-    }
-
+    double freq = (tx.getFrequency() + rx.getFrequency()) / 2;
     double loss = 0;
     // Use the ITU-R model with an empirical multiplier
-    PropagationModel model = new ITURPropagationModel(tx.getFrequency());
+    PropagationModel model = new ITURPropagationModel(freq);
     // Calculate the line of sight between transmitter and receive
     Line2D los = new Line2D(tx.getXY(), rx.getXY());
     double objectDistance = getPassThroughDistance(los);

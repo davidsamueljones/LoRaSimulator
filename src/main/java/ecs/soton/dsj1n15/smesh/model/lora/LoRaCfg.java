@@ -41,7 +41,7 @@ public class LoRaCfg {
 
   private double freq;
   private int sf;
-  private int txPow;
+  private double txPow;
   private int bw;
   private int cr;
   private int preambleSymbols;
@@ -79,14 +79,14 @@ public class LoRaCfg {
   /**
    * @return The current transmission power in dBm
    */
-  public int getTxPow() {
+  public double getTxPow() {
     return txPow;
   }
 
   /**
    * @param txPow The new transmission power in dBm
    */
-  public void setTxPow(int txPow) {
+  public void setTxPow(double txPow) {
     this.txPow = txPow;
   }
 
@@ -237,7 +237,7 @@ public class LoRaCfg {
   public static double getSymbolTime(LoRaCfg cfg) {
     return 1000.0 * Math.pow(2, cfg.sf) / cfg.bw; // ms
   }
-  
+
   /**
    * Check if low data rate is required for this instance.<br>
    * See {@link #sLDRRequired(LoRaCfg cfg)}.
@@ -328,6 +328,32 @@ public class LoRaCfg {
   }
 
   /**
+   * Get LoRaWAN datarate via index (0-6).
+   * 
+   * @param dr Datarate index.
+   * @return Created configuration for datarate
+   */
+  public static LoRaCfg getDatarate(int dr) {
+    switch (dr) {
+      case 0:
+        return LoRaCfg.getDataRate0();
+      case 1:
+        return LoRaCfg.getDataRate1();
+      case 2:
+        return LoRaCfg.getDataRate2();
+      case 3:
+        return LoRaCfg.getDataRate3();
+      case 4:
+        return LoRaCfg.getDataRate4();
+      case 5:
+        return LoRaCfg.getDataRate5();
+      case 6:
+        return LoRaCfg.getDataRate6();
+    }
+    return null;
+  }
+
+  /**
    * Default parameters, by default uses G3 ETSI band.
    * 
    * @return Profile with default LoRaWAN configuration
@@ -344,7 +370,7 @@ public class LoRaCfg {
     cfg.setCR(CR_4_5);
     return cfg;
   }
-  
+
   /**
    * @return Get the LoRa chirp rate
    */

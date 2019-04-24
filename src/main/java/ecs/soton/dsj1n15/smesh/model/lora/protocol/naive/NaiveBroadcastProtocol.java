@@ -1,15 +1,8 @@
 package ecs.soton.dsj1n15.smesh.model.lora.protocol.naive;
 
-import java.util.HashMap;
-import java.util.Map;
-import ecs.soton.dsj1n15.smesh.model.dutycycle.DutyCycleManager;
-import ecs.soton.dsj1n15.smesh.model.dutycycle.SingleTransmissionDutyCycleManager;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
-import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaRadio;
 import ecs.soton.dsj1n15.smesh.model.lora.protocol.Protocol;
-import ecs.soton.dsj1n15.smesh.model.lora.protocol.ProtocolTickListener;
-import ecs.soton.dsj1n15.smesh.radio.Packet;
 import ecs.soton.dsj1n15.smesh.radio.Radio;
 
 /**

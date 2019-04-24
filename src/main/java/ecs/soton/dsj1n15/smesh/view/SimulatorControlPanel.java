@@ -13,12 +13,12 @@ import ecs.soton.dsj1n15.smesh.model.lora.protocol.adaptive.AdaptiveBroadcastPro
 import ecs.soton.dsj1n15.smesh.model.lora.protocol.events.EventProtocol;
 import ecs.soton.dsj1n15.smesh.model.lora.protocol.naive.NaiveBroadcastProtocol;
 import ecs.soton.dsj1n15.smesh.model.presets.DataBroadcastTest;
-import ecs.soton.dsj1n15.smesh.model.presets.PayloadCollisionPreset;
-import ecs.soton.dsj1n15.smesh.model.presets.PreambleCollisionPreset;
+import ecs.soton.dsj1n15.smesh.model.presets.CollisionVerificationPreset;
 import ecs.soton.dsj1n15.smesh.model.presets.LargeDataBroadcastTest;
 import ecs.soton.dsj1n15.smesh.model.presets.NineNodeLine;
 import ecs.soton.dsj1n15.smesh.model.presets.Preset;
 import ecs.soton.dsj1n15.smesh.model.presets.TwoNode;
+import ecs.soton.dsj1n15.smesh.model.presets.LargeDataBroadcastTest.EnvironmentMode;
 import java.awt.GridBagLayout;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
@@ -478,11 +478,12 @@ public class SimulatorControlPanel extends JScrollPane {
    * Load all presets into selection box.
    */
   private void loadPresets() {
-    addPreset("400m Space Broadcast", new LargeDataBroadcastTest(6, 5, 400, true));
-    addPreset("100m Space Broadcast", new LargeDataBroadcastTest(6, 5, 100, true));
+    addPreset("400m Space Broadcast",
+        new LargeDataBroadcastTest(6, 5, 400, true, EnvironmentMode.FOREST_HALF_MIDDLE));
+    addPreset("100m Space Broadcast",
+        new LargeDataBroadcastTest(6, 5, 100, true, EnvironmentMode.FOREST_HALF_MIDDLE));
     addPreset("2N NO 100m", new TwoNode(100, LoRaCfg.getDataRate0()));
-    addPreset("Preamble Collision Test", new PreambleCollisionPreset());
-    addPreset("Payload Collision Test", new PayloadCollisionPreset());
+    addPreset("Collision Verification", new CollisionVerificationPreset());
     addPreset("9N NO Line", new NineNodeLine());
     addPreset("Broadcast Test", new DataBroadcastTest());
   }
@@ -491,10 +492,10 @@ public class SimulatorControlPanel extends JScrollPane {
    * Load all protocols into selection box.
    */
   private void loadProtocols() {
+    cboProtocol.addItem(ADAPTIVE_PROTOCOL_NAME);
     cboProtocol.addItem(NAIVE_PROTOCOL_1P_NAME);
     cboProtocol.addItem(NAIVE_PROTOCOL_10P_NAME);
     cboProtocol.addItem(NAIVE_PROTOCOL_10P_NO_CAD_NAME);
-    cboProtocol.addItem(ADAPTIVE_PROTOCOL_NAME);
     cboProtocol.addItem(EVENTS_ONLY);
   }
 
@@ -543,7 +544,7 @@ public class SimulatorControlPanel extends JScrollPane {
     } else if (strProtocol.equals(NAIVE_PROTOCOL_10P_NO_CAD_NAME)) {
       protocol = new NaiveBroadcastProtocol(preset.getEnvironment(), 0.1, false);
     } else if (strProtocol.equals(ADAPTIVE_PROTOCOL_NAME)) {
-      protocol = new AdaptiveBroadcastProtocol(preset.getEnvironment());
+      protocol = new AdaptiveBroadcastProtocol(preset.getEnvironment(), 1);
     }
     loadEnvironment();
     EnvironmentDrawer drawer = pnlView.getEnvironmentDrawer();

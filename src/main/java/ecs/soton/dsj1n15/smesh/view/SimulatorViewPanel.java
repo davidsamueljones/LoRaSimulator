@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import javax.swing.JPanel;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
+import ecs.soton.dsj1n15.smesh.model.lora.LoRaRadio;
 import ecs.soton.dsj1n15.smesh.radio.Radio;
 import math.geom2d.Point2D;
 import math.geom2d.conic.Circle2D;
@@ -212,6 +213,13 @@ public class SimulatorViewPanel extends JPanel
   public void mousePressed(MouseEvent e) {
     lastPos = e.getPoint();
     selectedNode = findNode(e);
+    if (selectedNode != null) {
+      System.out.println("Node: " + selectedNode.getID());
+      System.out.println("* Frequency: " + selectedNode.getFrequency());
+      if (selectedNode instanceof LoRaRadio) {
+        System.out.println("* SF: " + ((LoRaRadio) selectedNode).getLoRaCfg().getSF());
+      }
+    }
   }
 
   @Override

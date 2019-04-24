@@ -15,3 +15,9 @@ buildNumber.properties
 .classpath
 .settings/
 *.txt
+
+res_0.01_400_pre_fix
+res_0.01_400
+res_0.1_400
+node_stats.csv
+transmission_stats.csv

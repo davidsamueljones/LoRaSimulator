@@ -50,5 +50,13 @@ public abstract class DutyCycleManager {
    *         point of the next available transmission time.
    */
   public abstract long getAvailableTransmitTime(long time);
+  
+  
+  /**
+   * @return The duty cycle managers duty cycle
+   */
+  public double getDutyCycle() {
+    return dutyCycle;
+  }
 
 }

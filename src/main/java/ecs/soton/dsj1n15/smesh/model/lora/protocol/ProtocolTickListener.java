@@ -7,7 +7,9 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.Map.Entry;
+import ecs.soton.dsj1n15.smesh.lib.Debugger;
 import ecs.soton.dsj1n15.smesh.lib.Utilities;
+import ecs.soton.dsj1n15.smesh.model.dutycycle.DutyCycleManager;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaRadio;
 import ecs.soton.dsj1n15.smesh.radio.Packet;
@@ -55,6 +57,7 @@ public abstract class ProtocolTickListener implements TickListener {
 
   /* Previous state variables for checking change between ticks */
   protected Transmission currentTransmit = null;
+  protected Transmission lastTransmit = null;
   protected ReceiveResult lastReceive = null;
   protected Transmission syncReceive = null;
   protected boolean startedCAD = false;
@@ -75,11 +78,11 @@ public abstract class ProtocolTickListener implements TickListener {
    * for a transmitter to have a local idea of whether a transmission would be wanted.
    * 
    * @param rxPos The location of the receiving radio
-   * @param transmission The transmission to check for
+   * @param txPos The location of the transmitting radio
    * @return Whether the transmission is wanted
    */
-  protected boolean isTransmissionWanted(Point2D rxPos, Transmission transmission) {
-    double dist = rxPos.distance(transmission.sender.getXY());
+  protected boolean isTransmissionWanted(Point2D rxPos, Point2D txPos) {
+    double dist = rxPos.distance(txPos);
     double a = 1;
     double b = 0;
     double d = 0.05;
@@ -98,18 +101,23 @@ public abstract class ProtocolTickListener implements TickListener {
    * @return Whether the transmission is wanted
    */
   protected boolean isTransmissionWanted(Radio rx, Transmission transmission) {
-    return isTransmissionWanted(rx.getXY(), transmission);
+    return isTransmissionWanted(rx.getXY(), transmission.sender.getXY());
   }
 
+  /**
+   * Track all transmissions in the environment.
+   */
   protected void trackTransmissions() {
     // Track all transmissions and decide which ones are 'wanted' (simulator metadata for testing
     // purposes)
     for (Transmission transmission : environment.getTransmissions()) {
-      if (transmission.sender != this.radio)
-        if (!wantedTransmissions.containsKey(transmission)) {
-          boolean wanted = isTransmissionWanted(radio, transmission);
-          wantedTransmissions.put(transmission, wanted);
-        }
+      if (transmission.sender == this.radio) {
+        continue;
+      }
+      if (!wantedTransmissions.containsKey(transmission)) {
+        boolean wanted = isTransmissionWanted(radio, transmission);
+        wantedTransmissions.put(transmission, wanted);
+      }
     }
   }
 
@@ -124,15 +132,16 @@ public abstract class ProtocolTickListener implements TickListener {
   }
 
   /**
-   * Prints whether the last transmission has finished sending.
+   * Prints whether the last transmission has finished sending and records the last transmission.
    * 
    * @return Whether the last transmission has finished sending
    */
   protected boolean checkForSendFinish() {
     // Alert on send finish
     if (currentTransmit != null && radio.getCurrentTransmission() == null) {
-      System.out.println(String.format("[%8d] - Radio %-2d - Finished Sending Message!)",
+      Debugger.println(String.format("[%8d] - Radio %-2d - Finished Sending Message!)",
           environment.getTime(), radio.getID()));
+      lastTransmit = currentTransmit;
       currentTransmit = null;
       return true;
     }
@@ -146,7 +155,7 @@ public abstract class ProtocolTickListener implements TickListener {
    */
   protected boolean checkForSync() {
     if (radio.getSyncedSignal() != null && syncReceive != radio.getSyncedSignal()) {
-      System.out.println(
+      Debugger.println(
           String.format("[%8d] - Radio %-2d - Got Sync!!!", environment.getTime(), radio.getID()));
       syncReceive = radio.getSyncedSignal();
       return true;
@@ -161,7 +170,7 @@ public abstract class ProtocolTickListener implements TickListener {
    */
   protected boolean checkCAD() {
     if (startedCAD && !radio.isCADMode()) {
-      System.out.println(String.format("[%8d] - Radio %-2d - CAD Result [%s]",
+      Debugger.println(String.format("[%8d] - Radio %-2d - CAD Result [%s]",
           environment.getTime(), radio.getID(), radio.getCADStatus()));
       return radio.getCADStatus();
     }
@@ -197,7 +206,7 @@ public abstract class ProtocolTickListener implements TickListener {
     if (lastReceive.status == Status.FAIL_CRC) {
       status = "CRC failure on ";
     }
-    System.out.println(String.format("[%8d] - Radio %-2d - Got %s%s message from Radio %-2d!!!",
+    Debugger.println(String.format("[%8d] - Radio %-2d - Got %s%s message from Radio %-2d!!!",
         environment.getTime(), radio.getID(), status, wanted ? "wanted" : "unwanted",
         lastReceive.transmission.sender.getID()));
   }
@@ -209,14 +218,109 @@ public abstract class ProtocolTickListener implements TickListener {
    * 
    * @return A test packet between 5 and 255 bytes
    */
-  protected Packet makeGenericDataPacket() {
-    return new Packet(5 + r.nextInt(250));
+  protected Packet makeTestDataPacket() {
+    return new TestDataPacket(5 + r.nextInt(250));
+  }
+
+  /**
+   * Attempt to send a transmission without carrier sensing (ongoing receive checking does occur).
+   * If a transmission is not successful then an appropriate status code is returned for failure
+   * handling.
+   * 
+   * @param packet Packet to transmit
+   * @param dcm Duty cycle manager that must be obeyed
+   * @return Status code corresponding to send success
+   */
+  protected SendStatus attemptSend(Packet packet, DutyCycleManager dcm) {
+    // Don't attempt if send not scheduled or currently transmitting
+    if (radio.getCurrentTransmission() != null) {
+      return SendStatus.RADIO_BUSY;
+    }
+    // Delay send if currently receiving
+    if (radio.getSyncedSignal() != null) {
+      return SendStatus.CHANNEL_BUSY;
+    }
+    // Check if duty cycle manager allows packet to be sent
+    int airtime = radio.getLoRaCfg().calculatePacketAirtime(packet.length);
+    if (!dcm.canTransmit(environment.getTime(), airtime)) {
+      return SendStatus.DUTY_CYCLE_LIMIT;
+    }
+    // Send the message!
+    Debugger.println(String.format("[%8d] - Radio %-2d - Sending Message...)",
+        environment.getTime(), radio.getID()));
+    dcm.transmit(environment.getTime(), airtime);
+    radio.send(packet);
+    trackSend();
+    return SendStatus.SUCCESS;
   }
 
 
+  /**
+   * Attempt to send a transmission whilst utilising CAD to first do carrier sensing. If a
+   * transmission is not successful then an appropriate status code is returned for failure
+   * handling.
+   * 
+   * @param packet Packet to transmit
+   * @param dcm Duty cycle manager that must be obeyed
+   * @return Status code corresponding to send success
+   */
+  protected SendStatus attemptSendWithCAD(Packet packet, DutyCycleManager dcm) {
+    // Don't attempt if send not scheduled, completing CAD or currently transmitting
+    if (radio.isCADMode() || radio.getCurrentTransmission() != null) {
+      return SendStatus.RADIO_BUSY;
+    }
+    // Don't send if CAD comes back positive or currently receiving
+    if (startedCAD && radio.getCADStatus() || radio.getSyncedSignal() != null) {
+      // Will need to do CAD again
+      radio.clearCADStatus();
+      startedCAD = false;
+      return SendStatus.CHANNEL_BUSY;
+    }
+    // Check if duty cycle manager allows packet to be sent
+    int airtime = radio.getLoRaCfg().calculatePacketAirtime(packet.length);
+    if (!dcm.canTransmit(environment.getTime(), airtime)) {
+      return SendStatus.DUTY_CYCLE_LIMIT;
+    }
+    // Do CAD if it hasn't been attempted yet
+    if (!startedCAD) {
+      Debugger.println(String.format("[%8d] - Radio %-2d - Starting CAD...",
+          environment.getTime(), radio.getID()));
+      radio.startCAD();
+      startedCAD = true;
+      return SendStatus.CAD_NEEDED;
+    }
+    // Must have completed CAD stage successfully, we can reset it for next time
+    radio.clearCADStatus();
+    startedCAD = false;
+    // Send the message!
+    Debugger.println(String.format("[%8d] - Radio %-2d - Sending Message...)",
+        environment.getTime(), radio.getID()));
+    dcm.transmit(environment.getTime(), airtime);
+    radio.send(packet);
+    trackSend();
+    return SendStatus.SUCCESS;
+  }
+
+  /**
+   * Enumeration of status's for send attempts.
+   * 
+   * @author David Jones (dsj1n15)
+   */
+  public enum SendStatus {
+    SUCCESS, RADIO_BUSY, CHANNEL_BUSY, DUTY_CYCLE_LIMIT, CAD_NEEDED;
+  }
+
+  /**
+   * Print the nodes receive results for all transmissions received. Only include those that are
+   * test data packets as they won't be able to be filtered out later.
+   * 
+   * @param pw Print writer to use
+   * @param filterWanted Whether to filter to only those wanted
+   */
   public void printReceiveResults(PrintWriter pw, boolean filterWanted) {
-    int seenWanted = 0;
-    int gotWanted = 0;
+    int wantedCount = 0;
+    int receivedWanted = 0;
+    int receivedUnwanted = 0;
     int failedMissed = 0;
     int failedNoPreamble = 0;
     int failedPreambleCollision = 0;
@@ -224,23 +328,40 @@ public abstract class ProtocolTickListener implements TickListener {
     int failedWeakPayload = 0;
 
     for (Entry<Transmission, Boolean> seen : wantedTransmissions.entrySet()) {
+      Transmission transmission = seen.getKey();
+      boolean wanted = seen.getValue();
+      ReceiveResult receive = receivedData.get(seen.getKey());
+
       // Ignore if transmission isn't finished
-      if (seen.getKey().endTime > environment.getTime()) {
+      if (transmission.endTime > environment.getTime()) {
         continue;
       }
-      // Ignore if not wanted
-      if (!seen.getValue() && filterWanted) {
+      // Ignore if transmission is not data packet
+      if (!(transmission.packet instanceof TestData)) {
         continue;
       }
-      // Determine if the wanted transmission was received and if not, why not
-      seenWanted++;
-      ReceiveResult result = receivedData.get(seen.getKey());
-      if (result == null) {
+      // Ignore if not wanted (and filtering)
+      if (!wanted) {
+        if (receive != null && receive.status == Status.SUCCESS) {
+          receivedUnwanted++;
+        }
+        // Ignore unwanted messages if they are being filtered
+        if (filterWanted) {
+          continue;
+        }
+      } else {
+        // Accumulate count of wanted messages were received
+        wantedCount++;
+      }
+      // Accumulate whether message was received or not
+      if (receive == null) {
         failedMissed++;
       } else {
-        switch (result.metadataStatus) {
+        switch (receive.metadataStatus) {
           case SUCCESS:
-            gotWanted++;
+            if (wanted) {
+              receivedWanted++;
+            }
             break;
           case FAIL_NO_PREAMBLE:
             failedNoPreamble++;
@@ -259,9 +380,9 @@ public abstract class ProtocolTickListener implements TickListener {
         }
       }
     }
-    String str = String.format("Radio %2d -  %3d/%-3d - %3.0f%% - [%3d, %3d, %3d, %3d, %3d]\n",
-        radio.getID(), gotWanted, seenWanted, gotWanted / (double) seenWanted * 100, failedMissed,
-        failedNoPreamble, failedPreambleCollision, failedPayloadCollision, failedWeakPayload);
+    String str = String.format("%d,%d,%d,%d,%d,%d,%d,%d,%d\n", radio.getID(), wantedCount,
+        receivedWanted, receivedUnwanted, failedMissed, failedNoPreamble, failedPreambleCollision,
+        failedPayloadCollision, failedWeakPayload);
     Utilities.printAndWrite(pw, str);
   }
 

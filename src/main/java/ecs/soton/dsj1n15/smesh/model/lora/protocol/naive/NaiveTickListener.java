@@ -14,7 +14,7 @@ import ecs.soton.dsj1n15.smesh.radio.Packet;
  * 
  * @author David Jones (dsj1n15)
  */
-class NaiveTickListener extends ProtocolTickListener {
+public class NaiveTickListener extends ProtocolTickListener {
 
   /** Single band so a single duty cycle manager */
   private final DutyCycleManager dcm;
@@ -44,95 +44,59 @@ class NaiveTickListener extends ProtocolTickListener {
     // Simulation metadata gathering
     trackTransmissions();
 
-    // Run radio tasks
+    // Run generic radio tasks
     checkForSendFinish();
     checkForSync();
-    if (enableCAD) {
-      checkCAD();
-      attemptSendWithCAD();
-    } else {
-      attemptSend();
-    }
     checkForReceive();
+    checkCAD();
+    
+    // Handle protocol tasks
+    if (nextTransmit < environment.getTime()) {
+      sendTestData();
+    }
   }
 
   /**
-   * Attempt to send a transmission. Delay to some point in the future if currently receiving
-   * something.
+   * Handle sending of a random amount of test data either with or without CAD. Will backoff if
+   * either the channel is busy or not enough duty cycle limit is available.
    */
-  protected void attemptSend() {
-    // Don't attempt if send not scheduled or currently transmitting
-    if (nextTransmit > environment.getTime() && radio.getCurrentTransmission() == null) {
-      return;
-    }
-    // Delay send if currently receiving
-    if (radio.getSyncedSignal() != null) {
-      nextTransmit =
-          environment.getTime() + radio.getLoRaCfg().calculatePacketAirtime(128) + r.nextInt(10000);
-      return;
-    }
-    // Create a message to send
-    Packet packet = makeGenericDataPacket();
-    int airtime = radio.getLoRaCfg().calculatePacketAirtime(packet.length);
-    // Check if duty cycle manager allows packet to be sent, if not update to next possible time
-    if (!dcm.canTransmit(environment.getTime(), airtime)) {
-      this.nextTransmit = dcm.whenCanTransmit(environment.getTime(), airtime);
-      return;
-    }
-
-    // Send the message!
-    System.out.println(String.format("[%8d] - Radio %-2d - Sending Message...)",
-        environment.getTime(), radio.getID()));
-    dcm.transmit(environment.getTime(), airtime);
-    radio.send(packet);
-    trackSend();
-  }
-
-  /**
-   * Attempt to send a transmission whilst utilising CAD to first do carrier sensing. If now is not
-   * a good time to send, delay the transmission to a random point in the future.
-   */
-  protected void attemptSendWithCAD() {
-    // Don't attempt if send not scheduled, completing CAD or currently transmitting
-    if (nextTransmit > environment.getTime() || radio.isCADMode()
-        || radio.getCurrentTransmission() != null) {
-      return;
-    }
-    // Delay send if CAD comes back positive or currently receiving
-    if (startedCAD && radio.getCADStatus() || radio.getSyncedSignal() != null) {
-      nextTransmit =
-          environment.getTime() + radio.getLoRaCfg().calculatePacketAirtime(128) + r.nextInt(10000);
-      // Will need to do CAD again
-      radio.clearCADStatus();
-      startedCAD = false;
-      return;
-    }
-    // Create a message to send
-    Packet packet = makeGenericDataPacket();
-    int airtime = radio.getLoRaCfg().calculatePacketAirtime(packet.length);
-    // Check if duty cycle manager allows packet to be sent, if not update to next possible time
-    if (!dcm.canTransmit(environment.getTime(), airtime)) {
-      this.nextTransmit = dcm.whenCanTransmit(environment.getTime(), airtime);
-      return;
-    }
-    // Do CAD if it hasn't been attempted yet
-    if (!startedCAD) {
-      System.out.println(String.format("[%8d] - Radio %-2d - Starting CAD...",
-          environment.getTime(), radio.getID()));
-      radio.startCAD();
-      startedCAD = true;
+  protected void sendTestData() {
+    Packet packet = makeTestDataPacket();
+    // Attempt to send either with or without CAD
+    SendStatus sendStatus;
+    if (enableCAD) {
+      sendStatus = attemptSendWithCAD(packet, dcm);
     } else {
-      // Must have completed CAD stage successfully, we can reset it for next time
-      radio.clearCADStatus();
-      startedCAD = false;
-      // Send the message!
-      System.out.println(String.format("[%8d] - Radio %-2d - Sending Message...)",
-          environment.getTime(), radio.getID()));
-      dcm.transmit(environment.getTime(), airtime);
-      radio.send(packet);
-      trackSend();
+      sendStatus = attemptSend(packet, dcm);
+    }
+    // Handle whether the message was sent
+    switch (sendStatus) {
+      case RADIO_BUSY:
+        // Wait till radio has finished doing what it's doing
+        // Could be CAD or a transmission
+        break;
+      case CAD_NEEDED:
+        // CAD will have started, wait till complete
+        break;
+      case CHANNEL_BUSY:
+        // Handle backoff behaviour, by just delaying the average packet length and some random
+        // amount, could be more complex but should be good enough
+        nextTransmit = environment.getTime() + radio.getLoRaCfg().calculatePacketAirtime(128)
+            + r.nextInt(10000);
+        break;
+      case DUTY_CYCLE_LIMIT:
+        // Delay transmission till it is allowed
+        int airtime = radio.getLoRaCfg().calculatePacketAirtime(packet.length);
+        this.nextTransmit = dcm.whenCanTransmit(environment.getTime(), airtime);
+        break;
+      case SUCCESS:
+        // Message sent, nothing to worry about
+        break;
+      default:
+        break;
     }
   }
+
 }
 
 

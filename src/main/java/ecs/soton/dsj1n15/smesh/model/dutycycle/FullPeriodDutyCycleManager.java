@@ -40,7 +40,7 @@ public class FullPeriodDutyCycleManager extends DutyCycleManager {
 
   @Override
   public boolean canTransmit(long time, int airtime) {
-    int allowance = getPeriodAirtime();
+    int allowance = getPeriodTotalAirtime();
     int before = allowance - getPeriodAirtime(time + 1);
     int after = allowance - getPeriodAirtime(time + airtime);
     boolean canTransmit = true;
@@ -51,7 +51,7 @@ public class FullPeriodDutyCycleManager extends DutyCycleManager {
 
   @Override
   public long whenCanTransmit(long time, int airtime) {
-    if (airtime > getPeriodAirtime()) {
+    if (airtime > getPeriodTotalAirtime()) {
       return Long.MAX_VALUE;
     }
     while (!canTransmit(time, airtime)) {
@@ -99,7 +99,7 @@ public class FullPeriodDutyCycleManager extends DutyCycleManager {
   /**
    * @return The amount of allowed airtime for the configured period
    */
-  private int getPeriodAirtime() {
+  public int getPeriodTotalAirtime() {
     return (int) (dutyCyclePeriod * dutyCycle);
   }
 

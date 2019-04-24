@@ -28,6 +28,7 @@ import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import ecs.soton.dsj1n15.smesh.model.environment.EnvironmentObject;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaRadio;
+import ecs.soton.dsj1n15.smesh.model.lora.protocol.TestData;
 import ecs.soton.dsj1n15.smesh.radio.PartialReceive;
 import ecs.soton.dsj1n15.smesh.radio.Radio;
 import ecs.soton.dsj1n15.smesh.radio.Transmission;
@@ -56,6 +57,8 @@ public class EnvironmentDrawer {
   private final Color GENERAL_ROUTE_COLOR = Color.BLACK;
   private final Color INTERFERENCE_ROUTE_COLOR = new Color(204, 0, 0);
   private final Color SELECTED_NODE_COLOR = new Color(0, 204, 0);
+  private final Color TEST_DATA_COLOR = new Color(0, 0, 204);
+  private final Color OVERHEAD_COLOR = new Color(255, 150, 50);
 
   private static final float[] SOLID_LINE = null;
   private static final float[] SHORT_DASH = {2.0f};
@@ -88,18 +91,18 @@ public class EnvironmentDrawer {
   // Caches for intensive calculations
   private final Map<Radio, Double> rssiCache = new HashMap<>();
   private final Map<Pair<Radio, Radio>, Double> snrCache = new HashMap<>();
-  
+
   // Lists of route information
   private List<Pair<Radio, Radio>> routes = new ArrayList<>();
   private List<Color> routeColors = new ArrayList<>();
   private List<float[]> routeStyles = new ArrayList<>();
   private List<Integer> routeOpacity = new ArrayList<>();
   private List<Double> routeSNRs = new ArrayList<>();
-  
+
   /**
    * Instantiates a new environment drawer with an environment.
    *
-   * @param tilePuzzle The tile puzzle object to draw
+   * @param environment The environment to draw
    */
   public EnvironmentDrawer(Environment environment) {
     this.environment = environment;
@@ -483,7 +486,7 @@ public class EnvironmentDrawer {
         }
 
         // Default style
-        Color color = new Color(0, 0, 204);
+        Color color = Color.BLACK;
         float style[] = SOLID_LINE;
 
         Transmission synced = null;
@@ -492,6 +495,12 @@ public class EnvironmentDrawer {
           synced = ((LoRaRadio) radio).getSyncedSignal();
           LoRaCfg senderCfg = ((LoRaRadio) receive.transmission.sender).getLoRaCfg();
           preambleEnd += senderCfg.calculatePreambleTime();
+          // Assign colour based on it being test data or not
+          if (receive.transmission.packet instanceof TestData) {
+            color = TEST_DATA_COLOR;
+          } else {
+            color = OVERHEAD_COLOR;
+          }
         }
 
         if (synced != null) {
@@ -500,7 +509,6 @@ public class EnvironmentDrawer {
             style = LONG_DASH;
           }
         } else {
-
           if (environment.getTime() >= receive.transmission.startTime
               && environment.getTime() <= preambleEnd) {
             style = LONG_DASH;
@@ -816,7 +824,8 @@ public class EnvironmentDrawer {
    */
   public static void imgExport(Environment environment) {
     EnvironmentDrawer drawer = new EnvironmentDrawer(environment);
-    BufferedImage exportImage = drawer.getEnvironmentImage(new Dimension(2048, 2048));
+    drawer.centreView(getViewSpace(new Dimension(1024, 1024)));
+    BufferedImage exportImage = drawer.getEnvironmentImage(new Dimension(1024, 1024));
     String date = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date());
     try {
       ImageIO.write(exportImage, "PNG", new File(date + "-Environment.png"));

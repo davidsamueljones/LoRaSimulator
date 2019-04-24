@@ -105,10 +105,16 @@ public class EnvironmentRunner {
    * Run all events
    */
   private void runEvents() {
-    List<Event> events = eventMap.get(environment.getTime());
-    if (events != null) {
-      for (Event event : events) {
-        event.execute();
+    for (int i = (timeUnit); i > 0; i--) {
+      long time = environment.getTime() - i;
+      if (time < 0) {
+        continue;
+      }
+      List<Event> events = eventMap.get(time);
+      if (events != null) {
+        for (Event event : events) {
+          event.execute();
+        }
       }
     }
   }

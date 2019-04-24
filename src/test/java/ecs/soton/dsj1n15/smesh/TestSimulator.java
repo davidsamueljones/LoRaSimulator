@@ -2,6 +2,7 @@ package ecs.soton.dsj1n15.smesh;
 
 import java.awt.EventQueue;
 import javax.swing.UIManager;
+import ecs.soton.dsj1n15.smesh.lib.Debugger;
 import ecs.soton.dsj1n15.smesh.view.SimulatorFrame;
 
 /**
@@ -28,6 +29,7 @@ public class TestSimulator {
       @Override
       public void run() {
         try {
+          Debugger.setOutputEnabled(true);
           SimulatorFrame frame = new SimulatorFrame();
           frame.setVisible(true);
         } catch (Exception e) {

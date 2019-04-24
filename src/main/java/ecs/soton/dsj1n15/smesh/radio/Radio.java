@@ -131,7 +131,7 @@ public abstract class Radio {
   /**
    * @return The transmission power in dBm
    */
-  public abstract int getTxPow();
+  public abstract double getTxPow();
 
   /**
    * @return The RX and TX gain of the antenna in dBm

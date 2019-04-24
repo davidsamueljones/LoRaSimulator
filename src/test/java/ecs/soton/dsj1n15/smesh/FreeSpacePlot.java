@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import ecs.soton.dsj1n15.smesh.controller.EnvironmentRunner;
 import ecs.soton.dsj1n15.smesh.lib.Debugger;
 import ecs.soton.dsj1n15.smesh.lib.Utilities;
@@ -26,7 +25,8 @@ public class FreeSpacePlot {
   private Map<Double, Double> rssis = null;
 
   /**
-   * The main method.
+   * The main method. Test all data rates in free space creating a set of points that can be
+   * plotted. Format used is identical to that of data loggers.
    *
    * @param args Passed arguments [Program uses no arguments]
    */
@@ -40,7 +40,7 @@ public class FreeSpacePlot {
     cfgs.add(LoRaCfg.getDataRate1());
     cfgs.add(LoRaCfg.getDataRate0());
 
-    File outputFile = new File("free_space_plot.txt");
+    File outputFile = new File("free_space_plot.csv");
     try (PrintWriter pw = new PrintWriter(outputFile)) {
       FreeSpacePlot plot = new FreeSpacePlot();
       Utilities.printAndWrite(pw,
@@ -73,6 +73,11 @@ public class FreeSpacePlot {
     }
   }
 
+  /**
+   * Generate points for the free space curve using the given configuration.
+   * 
+   * @param cfg Configuration to test
+   */
   public void generatePoints(LoRaCfg cfg) {
     exps = new LinkedHashMap<>();
     recvs = new LinkedHashMap<>();
@@ -126,19 +131,33 @@ public class FreeSpacePlot {
     runner.getExecutionThread().interrupt();
   }
 
-  public int getAttempts() {
-    return 75;
-  }
-
+  /**
+   * @return The increase in distance between transmitter and receiver each test
+   */
   public int getStep() {
     return 10;
   }
 
+  /**
+   * @return The number of packets to send at each test stage
+   */
+  public int getAttempts() {
+    return 75;
+  }
+
+
+  /**
+   * @return The intial distance between transmitter and receiver
+   */
   public int getStart() {
     return 10;
   }
 
-
+  /**
+   * Listener to record any valid receives.
+   * 
+   * @author David Jones (dsj1n15)
+   */
   class TestListener implements ReceiveListener {
 
     boolean gotPacket = false;
@@ -151,6 +170,6 @@ public class FreeSpacePlot {
         this.result = result;
       }
     }
-
   }
+
 }
