@@ -4,7 +4,6 @@ import java.util.Iterator;
 import java.util.Map.Entry;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import ecs.soton.dsj1n15.smesh.lib.Debugger;
 import ecs.soton.dsj1n15.smesh.lib.Utilities;
 import ecs.soton.dsj1n15.smesh.radio.Packet;
 import ecs.soton.dsj1n15.smesh.radio.PartialReceive;
@@ -91,7 +90,7 @@ public class LoRaRadio extends Radio {
   public LoRaCfg getLoRaCfg() {
     return cfg;
   }
-
+  
   @Override
   public double getFrequency() {
     return cfg.getFreq();
@@ -170,8 +169,6 @@ public class LoRaRadio extends Radio {
     }
     long airtime = cfg.calculatePacketAirtime(packet.length);
     tx = new Transmission(this, packet, environment.getTime(), airtime);
-    Debugger
-        .println(String.format("Time: %8d - Node: %d - Broadcast", environment.getTime(), this.id));
     return tx;
   }
 

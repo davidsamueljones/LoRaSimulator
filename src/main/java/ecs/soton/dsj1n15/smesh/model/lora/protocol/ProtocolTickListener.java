@@ -26,6 +26,8 @@ import ecs.soton.dsj1n15.smesh.radio.ReceiveResult.Status;
  * @author David Jones (dsj1n15)
  */
 public abstract class ProtocolTickListener implements TickListener {
+  /** Distance at which the transmission is wanted for test criteria */
+  public final double TRANSMISSION_WANTED_DISTANCE = 500;
 
   /** Random object to use for all randomness */
   protected final Random r = Utilities.RANDOM;
@@ -86,7 +88,7 @@ public abstract class ProtocolTickListener implements TickListener {
     double a = 1;
     double b = 0;
     double d = 0.05;
-    double c = 500;
+    double c = TRANSMISSION_WANTED_DISTANCE;
     double prob = a + (b - a) / (1 + Math.pow(10, d * (c - dist)));
     return r.nextDouble() <= prob;
   }
@@ -170,8 +172,8 @@ public abstract class ProtocolTickListener implements TickListener {
    */
   protected boolean checkCAD() {
     if (startedCAD && !radio.isCADMode()) {
-      Debugger.println(String.format("[%8d] - Radio %-2d - CAD Result [%s]",
-          environment.getTime(), radio.getID(), radio.getCADStatus()));
+      Debugger.println(String.format("[%8d] - Radio %-2d - CAD Result [%s]", environment.getTime(),
+          radio.getID(), radio.getCADStatus()));
       return radio.getCADStatus();
     }
     return false;
@@ -283,8 +285,8 @@ public abstract class ProtocolTickListener implements TickListener {
     }
     // Do CAD if it hasn't been attempted yet
     if (!startedCAD) {
-      Debugger.println(String.format("[%8d] - Radio %-2d - Starting CAD...",
-          environment.getTime(), radio.getID()));
+      Debugger.println(String.format("[%8d] - Radio %-2d - Starting CAD...", environment.getTime(),
+          radio.getID()));
       radio.startCAD();
       startedCAD = true;
       return SendStatus.CAD_NEEDED;

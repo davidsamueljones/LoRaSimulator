@@ -22,7 +22,7 @@ public class DataAnnouncePacket extends Packet {
   public final long startDelay; // 2 bytes
 
   /**
-   * 
+   * Create a new announcement packet.
    * 
    * @param sender The ID of the sending radio
    * @param target If the broadcast is actually meant to be a unicast, the radio ID

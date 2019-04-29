@@ -478,10 +478,10 @@ public class SimulatorControlPanel extends JScrollPane {
    * Load all presets into selection box.
    */
   private void loadPresets() {
-    addPreset("400m Space Broadcast",
-        new LargeDataBroadcastTest(6, 5, 400, true, EnvironmentMode.FOREST_HALF_MIDDLE));
-    addPreset("100m Space Broadcast",
-        new LargeDataBroadcastTest(6, 5, 100, true, EnvironmentMode.FOREST_HALF_MIDDLE));
+    addPreset("400m Broadcast (DR = 1)", new LargeDataBroadcastTest(LoRaCfg.getDataRate1(),
+        6, 5, 400, true, EnvironmentMode.FOREST_HALF_MIDDLE));
+    addPreset("300m Broadcast (DR = 5)", new LargeDataBroadcastTest(LoRaCfg.getDataRate5(),
+        6, 5, 400, true, EnvironmentMode.FOREST_HALF_MIDDLE));
     addPreset("2N NO 100m", new TwoNode(100, LoRaCfg.getDataRate0()));
     addPreset("Collision Verification", new CollisionVerificationPreset());
     addPreset("9N NO Line", new NineNodeLine());
@@ -492,11 +492,11 @@ public class SimulatorControlPanel extends JScrollPane {
    * Load all protocols into selection box.
    */
   private void loadProtocols() {
-    cboProtocol.addItem(ADAPTIVE_PROTOCOL_NAME);
+    cboProtocol.addItem(EVENTS_ONLY);
     cboProtocol.addItem(NAIVE_PROTOCOL_1P_NAME);
     cboProtocol.addItem(NAIVE_PROTOCOL_10P_NAME);
     cboProtocol.addItem(NAIVE_PROTOCOL_10P_NO_CAD_NAME);
-    cboProtocol.addItem(EVENTS_ONLY);
+    cboProtocol.addItem(ADAPTIVE_PROTOCOL_NAME);
   }
 
   /**

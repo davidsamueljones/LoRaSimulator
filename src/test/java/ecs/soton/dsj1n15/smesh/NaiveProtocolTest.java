@@ -8,12 +8,10 @@ import ecs.soton.dsj1n15.smesh.controller.EnvironmentRunner;
 import ecs.soton.dsj1n15.smesh.lib.Debugger;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
-import ecs.soton.dsj1n15.smesh.model.lora.LoRaRadio;
 import ecs.soton.dsj1n15.smesh.model.lora.protocol.naive.NaiveBroadcastProtocol;
 import ecs.soton.dsj1n15.smesh.model.presets.LargeDataBroadcastTest;
 import ecs.soton.dsj1n15.smesh.model.presets.LargeDataBroadcastTest.EnvironmentMode;
 import ecs.soton.dsj1n15.smesh.model.presets.Preset;
-import ecs.soton.dsj1n15.smesh.radio.Radio;
 import ecs.soton.dsj1n15.smesh.view.EnvironmentDrawer;
 
 public class NaiveProtocolTest {
@@ -27,18 +25,20 @@ public class NaiveProtocolTest {
   public static void main(String[] args) {
     Debugger.setOutputEnabled(false);
     NaiveProtocolTest npt = new NaiveProtocolTest();
-    npt.run(EnvironmentMode.NO_FOREST);
-    npt.run(EnvironmentMode.ALL_FOREST);
-    npt.run(EnvironmentMode.FOREST_HALF_SIDE);
-    npt.run(EnvironmentMode.FOREST_HALF_MIDDLE);
+    LoRaCfg cfg = LoRaCfg.getDataRate1();
+    npt.run(cfg, EnvironmentMode.NO_FOREST);
+    npt.run(cfg, EnvironmentMode.ALL_FOREST);
+    npt.run(cfg, EnvironmentMode.FOREST_HALF_SIDE);
+    npt.run(cfg, EnvironmentMode.FOREST_HALF_MIDDLE);
   }
 
   /**
    * Run the test for a single environmental configuration (the forest objects to use).
    * 
+   * @param cfg Configuration to use
    * @param em Environment configuration
    */
-  public void run(EnvironmentMode em) {
+  public void run(LoRaCfg cfg, EnvironmentMode em) {
     int unit = getExecutionUnit();
     long executionTime = getExecutionTime();
     // Create a runner
@@ -46,19 +46,12 @@ public class NaiveProtocolTest {
     runner.setTimeUnit(unit);
     // Make the test environment
     Preset preset =
-        new LargeDataBroadcastTest(getXCount(), getYCount(), getSeparation(), getRandom(), em);
+        new LargeDataBroadcastTest(cfg, getXCount(), getYCount(), getSeparation(), getRandom(), em);
     Environment environment = preset.getEnvironment();
     runner.setEnvironment(environment);
-    // Set the configurations to the one we want to test
-    for (Radio radio : environment.getNodes()) {
-      if (radio instanceof LoRaRadio) {
-        LoRaRadio loraRadio = (LoRaRadio) radio;
-        loraRadio.setLoRaCfg(LoRaCfg.getDataRate1());
-      }
-    }
     double dutyCycle = getDutyCycle();
     // Instantiate the protocol handler
-    NaiveBroadcastProtocol nbp = new NaiveBroadcastProtocol(environment, dutyCycle, true);
+    NaiveBroadcastProtocol nbp = new NaiveBroadcastProtocol(environment, dutyCycle, false);
     // runner.addEvents(preset.getEvents());
     // Execute runner
     runner.addUnitsToRun((long) Math.ceil(executionTime / (double) unit));
@@ -144,7 +137,7 @@ public class NaiveProtocolTest {
    * @return The duty cycle to test with
    */
   public double getDutyCycle() {
-    return 0.01;
+    return 0.1;
   }
 
   /**

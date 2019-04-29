@@ -17,6 +17,7 @@ import math.geom2d.polygon.Rectangle2D;
  * @author David Jones (dsj1n15)
  */
 public class LargeDataBroadcastTest extends Preset {
+  public final LoRaCfg cfg;
   public final int countX;
   public final int countY;
   public final int spacing;
@@ -26,13 +27,15 @@ public class LargeDataBroadcastTest extends Preset {
   /**
    * Create a large randomly generated grid of nodes.
    * 
+   * @param cfg The default LoRa configuration to use
    * @param countX Number of nodes in vertical
    * @param countY Number of nodes in horizontal
    * @param spacing Spacing between nodes
    * @param random Whether to randomly move nodes so spacing isn't perfect
    * @param em Environment mode
    */
-  public LargeDataBroadcastTest(int countX, int countY, int spacing, boolean random, EnvironmentMode em) {
+  public LargeDataBroadcastTest(LoRaCfg cfg, int countX, int countY, int spacing, boolean random, EnvironmentMode em) {
+    this.cfg = cfg;
     this.countX = countX;
     this.countY = countY;
     this.spacing = spacing;
@@ -43,7 +46,6 @@ public class LargeDataBroadcastTest extends Preset {
 
   @Override
   public void generate() {
-    final LoRaCfg cfg = LoRaCfg.getDataRate1();
     Cloner cloner = new Cloner();
     double z = DEFAULT_NODE_Z;
     // Empty environment

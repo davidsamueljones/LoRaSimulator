@@ -8,6 +8,7 @@ import ecs.soton.dsj1n15.smesh.controller.EnvironmentRunner;
 import ecs.soton.dsj1n15.smesh.lib.Debugger;
 import ecs.soton.dsj1n15.smesh.model.environment.Environment;
 import ecs.soton.dsj1n15.smesh.model.lora.protocol.adaptive.AdaptiveBroadcastProtocol;
+import ecs.soton.dsj1n15.smesh.model.lora.protocol.adaptive.AdaptiveTickListener;
 import ecs.soton.dsj1n15.smesh.model.presets.LargeDataBroadcastTest;
 import ecs.soton.dsj1n15.smesh.model.presets.LargeDataBroadcastTest.EnvironmentMode;
 import ecs.soton.dsj1n15.smesh.model.presets.Preset;
@@ -22,7 +23,7 @@ public class AdaptiveProtocolTest {
    * @param args Passed arguments [Program uses no arguments]
    */
   public static void main(String[] args) {
-    Debugger.setOutputEnabled(false);
+    Debugger.setOutputEnabled(true);
     AdaptiveProtocolTest apt = new AdaptiveProtocolTest();
     apt.run(EnvironmentMode.NO_FOREST);
     apt.run(EnvironmentMode.ALL_FOREST);
@@ -42,11 +43,14 @@ public class AdaptiveProtocolTest {
     EnvironmentRunner runner = new EnvironmentRunner();
     runner.setTimeUnit(unit);
     // Make the test environment
-    Preset preset =
-        new LargeDataBroadcastTest(getXCount(), getYCount(), getSeparation(), getRandom(), em);
+    Preset preset = new LargeDataBroadcastTest(null, getXCount(), getYCount(), getSeparation(),
+        getRandom(), em);
     Environment environment = preset.getEnvironment();
     runner.setEnvironment(environment);
-    // Instantiate the protocol handler
+    // Instantiate the protocol handler, this will handle setting of the correct data rate
+    AdaptiveTickListener.ANNOUNCEMENT_PACKET_COUNT = 1;
+    AdaptiveTickListener.HEARTBEAT_ENABLED = true;
+    AdaptiveTickListener.TARGET_CHEAT = false;
     AdaptiveBroadcastProtocol abp = new AdaptiveBroadcastProtocol(environment, getDataRate());
     // Execute runner
     runner.addUnitsToRun((long) Math.ceil(executionTime / (double) unit));
@@ -59,25 +63,25 @@ public class AdaptiveProtocolTest {
     // Print results to file
     File outputFile;
     String prefix = StringUtils.lowerCase(em.toString());
-    outputFile = makeTestFile(prefix + "_nbp_ts_filtered");
+    outputFile = makeTestFile(prefix + "_apt_ts_filtered");
     try (PrintWriter pw = new PrintWriter(outputFile)) {
       abp.printTransmissionResults(pw, true);
     } catch (FileNotFoundException e) {
       e.printStackTrace();
     }
-    outputFile = makeTestFile(prefix + "_nbp_ts");
+    outputFile = makeTestFile(prefix + "_apt_ts");
     try (PrintWriter pw = new PrintWriter(outputFile)) {
       abp.printTransmissionResults(pw, false);
     } catch (FileNotFoundException e) {
       e.printStackTrace();
     }
-    outputFile = makeTestFile(prefix + "_nbp_nr_filtered");
+    outputFile = makeTestFile(prefix + "_apt_nr_filtered");
     try (PrintWriter pw = new PrintWriter(outputFile)) {
       abp.printNodeResults(pw, true);
     } catch (FileNotFoundException e) {
       e.printStackTrace();
     }
-    outputFile = makeTestFile(prefix + "_nbp_nr");
+    outputFile = makeTestFile(prefix + "_apt_nr");
     try (PrintWriter pw = new PrintWriter(outputFile)) {
       abp.printNodeResults(pw, false);
     } catch (FileNotFoundException e) {

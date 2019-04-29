@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import ecs.soton.dsj1n15.smesh.lib.Debugger;
 import ecs.soton.dsj1n15.smesh.lib.Utilities;
 import ecs.soton.dsj1n15.smesh.model.dutycycle.FullPeriodDutyCycleManager;
 import ecs.soton.dsj1n15.smesh.model.lora.LoRaCfg;
@@ -40,7 +41,17 @@ public class AdaptiveTickListener extends ProtocolTickListener {
   /** The order in which to consider the datarates */
   private static final int[] DATARATE_USE_ORDER = {0, 1, 3, 4, 5};
 
-  private static final int ANNOUNCEMENT_PACKET_COUNT = 2;
+  /**
+   * The number of announcement packets to send before broadcast TODO: Initialise on instantiation
+   * as opposed to using public variable.
+   */
+  public static int ANNOUNCEMENT_PACKET_COUNT = 2;
+
+  /** Whether to enable heartbeat packet sending */
+  public static boolean HEARTBEAT_ENABLED = true;
+
+  /** Whether to find all the best targets using sim metadata */
+  public static boolean TARGET_CHEAT = false;
 
   /** A duty cycle manager for managing the low data rate band */
   private final FullPeriodDutyCycleManager dcmLowRateBand;
@@ -59,7 +70,7 @@ public class AdaptiveTickListener extends ProtocolTickListener {
   private LoRaCfg lowRateBandCfg;
   private final int intervalHeartbeat;
   private long nextHeartbeat;
-  private boolean lastHeartbeatComplete;
+  private boolean lastHeartbeatComplete = true;
 
   private long nextBroadcast;
   private long nextBroadcastDelay;
@@ -149,7 +160,7 @@ public class AdaptiveTickListener extends ProtocolTickListener {
     long curTime = environment.getTime();
     // Send periodic heartbeats
     if (!sendingAnnouncements) {
-      if (nextHeartbeat < curTime) {
+      if (nextHeartbeat < curTime && HEARTBEAT_ENABLED) {
         sendHeartbeat();
         return;
       }
@@ -165,7 +176,7 @@ public class AdaptiveTickListener extends ProtocolTickListener {
     }
     // Handle broadcast announcement
     if (announcementScheduled && broadcastAnnouncement != null) {
-      if (attemptSend(broadcastAnnouncement, dcmHighRateBand) == SendStatus.SUCCESS) {
+      if (attemptSend(broadcastAnnouncement, dcmLowRateBand) == SendStatus.SUCCESS) {
         announcementScheduled = false;
       }
     }
@@ -198,6 +209,8 @@ public class AdaptiveTickListener extends ProtocolTickListener {
     } else {
       // Must be receiving, check if receive timeout has been reached
       if (timeoutPacketReceives < curTime) {
+        Debugger.println(String.format("[%8d] - Radio %-2d - Timed Out HDR", environment.getTime(),
+            radio.getID()));
         setLowDataRate();
       }
     }
@@ -211,6 +224,9 @@ public class AdaptiveTickListener extends ProtocolTickListener {
    */
   public boolean scheduleAnnouncement() {
     // Check if there is anyone to send to
+    if (TARGET_CHEAT) {
+      testFindLocalNeighbours();
+    }
     Set<Radio> targets = findPotentialTargets();
     if (targets.size() > 0) {
       // Determine how much data to send
@@ -319,11 +335,29 @@ public class AdaptiveTickListener extends ProtocolTickListener {
     return potentialTargets;
   }
 
+
+  /**
+   * Find the local neighbours without heartbeats.<br>
+   * This is a test function that utilises simulation metadata.
+   */
+  private void testFindLocalNeighbours() {
+    for (Radio receiver : environment.getNodes()) {
+      if (receiver == radio) {
+        continue;
+      }
+      double snr = environment.getReceiveSNR(radio, receiver);
+      seenRadios.put(receiver, environment.getTime());
+      seenRadiosSNRs.put(receiver, snr);
+      seenRadiosLocs.put(receiver, radio.getXY());
+    }
+  }
+
   /**
    * Create a broadcast announcement packet using already collected data from heartbeats to make
    * decision on spreading factor and channel.
    * 
    * @param targets The radios to try and fit the broadcast parameters to
+   * @param packets The packets that are going to be sent
    * @return The created packet
    */
   protected DataAnnouncePacket makeAnnouncementPacket(Set<Radio> targets, List<Packet> packets) {
